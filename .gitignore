@@ -1,0 +1,14 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+*.log
+
+# Node (por si luego se agrega tooling)
+node_modules/
+
+# Temporales
+*.tmp
+scratchpad/
+
+# Config local de Claude Code / preview (no publicar)
+.claude/
