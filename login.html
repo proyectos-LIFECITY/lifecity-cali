@@ -187,10 +187,20 @@ async function handleLocal(email, pass, name){
   setTimeout(()=> location.href = REDIRECT_AFTER_LOGIN, 500);
 }
 
+// Guarda el registro como "lead" en una tabla visible de Supabase (no bloqueante).
+async function captureLead(email, name){
+  if (!supa) return;
+  try {
+    const { error } = await supa.from('leads').insert({ email, name: name || null, source: 'signup', user_agent: navigator.userAgent });
+    if (error) console.warn('Lead no guardado:', error.message);
+  } catch (e) { console.warn('Lead no guardado:', e.message); }
+}
+
 async function handleSupa(email, pass, name){
   if (mode === 'reg'){
     const { data, error } = await supa.auth.signUp({ email, password: pass, options:{ data:{ name } } });
     if (error) throw error;
+    await captureLead(email, name);
     if (data.session){ setSession(email, name); show('ok','Cuenta creada. Entrando…'); setTimeout(()=>location.href=REDIRECT_AFTER_LOGIN,500); }
     else { show('ok','Cuenta creada. Revisa tu correo para confirmar y luego inicia sesión.'); $('submit').disabled=false; setMode('login'); }
   } else {
