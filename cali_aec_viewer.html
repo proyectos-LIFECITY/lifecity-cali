@@ -428,18 +428,21 @@ function toast(msg, kind = '') {
   toastT = setTimeout(() => t.classList.remove('show'), 3800);
 }
 
-// ===================== GEO HELPERS (lat/lon <-> local ENU meters) =====================
+// ===================== GEO HELPERS (Web Mercator EPSG:3857, igual que OSM) =====================
+// Proyectar TODO (tiles OSM, edificios, lotes IDESC) con la misma proyección Web Mercator
+// garantiza que los lotes catastrales cuadren exactamente con OpenStreetMap.
 const R = 6378137;
+const DEG = Math.PI / 180;
+function mercY(latDeg) { return R * Math.log(Math.tan(Math.PI / 4 + (latDeg * DEG) / 2)); }
 function latLonToLocal(lat, lon) {
-  const dLat = (lat - state.centerLat) * Math.PI / 180;
-  const dLon = (lon - state.centerLon) * Math.PI / 180;
-  const x = dLon * R * Math.cos(state.centerLat * Math.PI / 180);
-  const z = -dLat * R; // norte = -Z
+  const x = R * (lon - state.centerLon) * DEG;
+  const z = -(mercY(lat) - mercY(state.centerLat)); // norte = -Z
   return { x, z };
 }
 function localToLatLon(x, z) {
-  const lat = state.centerLat + (-z / R) * 180 / Math.PI;
-  const lon = state.centerLon + (x / (R * Math.cos(state.centerLat * Math.PI / 180))) * 180 / Math.PI;
+  const lon = state.centerLon + (x / R) / DEG;
+  const my = mercY(state.centerLat) - z;
+  const lat = (2 * Math.atan(Math.exp(my / R)) - Math.PI / 2) / DEG;
   return { lat, lon };
 }
 
@@ -506,7 +509,8 @@ function tile2lat(y, z) {
 function loadBasemap() {
   gBasemap.clear();
   const z = 16, span = 3; // (2*span+1)^2 tiles
-  const cx = lon2tile(state.centerLon, z), cy = lat2tile(state.centerLat, z);
+  const vc = localToLatLon(controls.target.x, controls.target.z); // centrar en la vista actual
+  const cx = lon2tile(vc.lon, z), cy = lat2tile(vc.lat, z);
   const loader = new THREE.TextureLoader();
   loader.crossOrigin = 'anonymous';
   let done = 0, total = (2 * span + 1) ** 2;
@@ -537,7 +541,8 @@ function loadBasemap() {
 // ===================== OSM BUILDINGS (Overpass) =====================
 async function loadOSMBuildings() {
   showLoading('CONSULTANDO OPENSTREETMAP...');
-  const bbox = `${state.centerLat - 0.015},${state.centerLon - 0.018},${state.centerLat + 0.015},${state.centerLon + 0.018}`;
+  const vc = localToLatLon(controls.target.x, controls.target.z); // edificios alrededor de la vista actual
+  const bbox = `${vc.lat - 0.015},${vc.lon - 0.018},${vc.lat + 0.015},${vc.lon + 0.018}`;
   const query = `[out:json][timeout:25];(way[building](${bbox}););out geom;`;
   try {
     const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(query) });
@@ -773,21 +778,17 @@ async function searchParcel() {
   }
 }
 
-// Recentra el origen ENU en el predio (para precisión local) y redibuja todo
+// Muestra el predio buscado y lleva la cámara. NO cambia el origen: así todas las capas
+// (basemap OSM, edificios, lotes) permanecen en un mismo marco y siguen cuadrando.
 function recenterOn(feature) {
   const outer = (feature.geometry.type === 'MultiPolygon' ? feature.geometry.coordinates[0][0] : feature.geometry.coordinates[0]);
   const c = polyCentroid(outer);
-  state.centerLat = c.lat; state.centerLon = c.lon;
   $('hud-center').textContent = `${c.lat.toFixed(5)}°, ${c.lon.toFixed(5)}°`;
-  // Reorigen: limpia terrenos previos y redibuja el predio buscado en el nuevo centro
   gParcels.clear(); state.parcels.clear(); $('parcel-count').textContent = 0;
   renderParcel(feature);
-  // Re-anclar propiedades guardadas / IFC / nubes al nuevo origen
-  rebuildProjects();
-  rebuildPhotos();
-  if (state.basemapLoaded) loadBasemap();
-  controls.target.set(0, 0, 0);
-  camera.position.set(350, 320, 350);
+  const l = latLonToLocal(c.lat, c.lon);
+  controls.target.set(l.x, 0, l.z);
+  camera.position.set(l.x + 350, 320, l.z + 350);
 }
 
 function selectParcelById(id) {
