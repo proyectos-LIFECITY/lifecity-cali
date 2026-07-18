@@ -63,7 +63,7 @@
 <body>
 <div id="app">
   <aside id="left">
-    <div class="brand"><h1>ESTUDIO DE MASAS</h1><span class="tag">CONCEPTUAL · REVIT-LIKE</span><button id="btn-logout" title="Cerrar sesión" style="margin-left:auto;background:var(--bg-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:5px 8px;cursor:pointer">⏻</button></div>
+    <div class="brand"><h1>ESTUDIO DE MASAS</h1><span class="tag">MODELADO CONCEPTUAL · SKETCH</span><button id="btn-logout" title="Cerrar sesión" style="margin-left:auto;background:var(--bg-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:5px 8px;cursor:pointer">⏻</button></div>
 
     <div class="section">
       <h2><span>Predio</span><span class="dot"></span></h2>
@@ -95,7 +95,7 @@
     </div>
 
     <div class="section">
-      <h2><span>Niveles (Revit)</span><span class="dot"></span></h2>
+      <h2><span>Niveles</span><span class="dot"></span></h2>
       <div class="row2">
         <div class="ctl"><label>Nombre</label><input id="lvl-name" placeholder="N1"></div>
         <div class="ctl"><label>Elev (m)</label><input id="lvl-elev" type="number" step="0.1" value="0"></div>
@@ -114,6 +114,33 @@
       <button class="btn viol" id="btn-draw-wall"><span class="ic">✎</span> Dibujar muro (2 clics)</button>
       <div class="hint" id="wall-hint">Elige base/superior y traza la directriz en planta. El muro queda anclado: si cambias la elevación de un nivel, el muro se ajusta en top y base.</div>
       <div id="wall-list"></div>
+    </div>
+
+    <!-- ===== MODELADO SKETCH (tipo SketchUp) ===== -->
+    <div class="section">
+      <h2><span>Modelado libre (sketch)</span><span class="dot" style="background:#4dd0e1"></span></h2>
+      <button class="btn cyan" id="btn-rect"><span class="ic">▭</span> Rectángulo (2 clics)</button>
+      <div class="ctl"><label>Altura inicial (m) <span class="v" id="v-rh">3.0</span></label><input type="range" id="s-rh" min="0.2" max="30" step="0.2" value="3"></div>
+      <button class="btn" id="btn-pushpull"><span class="ic">↥</span> Extruir cara (push/pull)</button>
+      <div class="row3">
+        <button class="btn" id="btn-mv"><span class="ic">•</span> Punto</button>
+        <button class="btn" id="btn-me"><span class="ic">╱</span> Arista</button>
+        <button class="btn" id="btn-mf"><span class="ic">▰</span> Cara</button>
+      </div>
+      <div class="hint" id="edit-hint">Dibuja un rectángulo en el suelo y extruye su cara superior. Con Punto/Arista/Cara arrastras sub-objetos (Shift = mover en vertical). Esc cancela.</div>
+      <button class="btn danger" id="btn-edit-clear"><span class="ic">✕</span> Borrar sólidos sketch</button>
+    </div>
+
+    <!-- ===== IA: aprender a masar ===== -->
+    <div class="section">
+      <h2><span>IA de masas (aprende)</span><span class="dot" style="background:#9c6bff"></span></h2>
+      <div class="field">
+        <label>Endpoint del agente (LangChain/Nemotron)</label>
+        <input type="text" id="ai-endpoint" placeholder="https://tu-backend/suggest">
+      </div>
+      <button class="btn viol" id="btn-ai"><span class="ic">✦</span> Sugerir masa con IA</button>
+      <button class="btn" id="btn-dataset"><span class="ic">⇩</span> Descargar dataset (entrenamiento)</button>
+      <div class="hint">Cada cambio se graba como ejemplo. El agente (Nemotron 3 Ultra vía LangChain) usa el predio + POT + tus ejemplos para proponer masas. Backend en <b>/ai</b>.</div>
     </div>
 
     <div class="section">
@@ -538,12 +565,162 @@ canvas.addEventListener('click',(e)=>{
     else { walls.push({id:wid++,baseId:+$('wall-base').value,topId:+$('wall-top').value,p1:wallP1,p2:p,thickness:+$('s-wt').value}); buildWalls(); refreshWallUI(); cancelDraw(); }
     return;
   }
+  if(mode!=='orbit') return; // en modos de edición (rect/pushpull/mover) los gestos los maneja el editor
   const r=canvas.getBoundingClientRect(); mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
   ray.setFromCamera(mouse,camera);
   const meshes=[]; gMasses.traverse(o=>{if(o.userData&&o.userData.massId)meshes.push(o);});
   const hit=ray.intersectObjects(meshes,false)[0];
   if(hit){ const m=masses.find(x=>x.id===hit.object.userData.massId); if(m) selectMass(m); }
 });
+
+// ==================== MODELADO SKETCH (tipo SketchUp) ====================
+const gEdit=new THREE.Group(); scene.add(gEdit);
+let solids=[]; let solidUid=1; let editDraft=null; let rectP1=null; let drag=null;
+let editHistory=[];
+function record(entry){ entry.t=Date.now(); editHistory.push(entry); }
+
+function faceGeom(verts,f){ const pos=[]; for(let i=1;i<f.length-1;i++){ pos.push(...verts[f[0]].toArray(),...verts[f[i]].toArray(),...verts[f[i+1]].toArray()); } const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.computeVertexNormals(); return g; }
+function faceNormal(verts,f){ const a=verts[f[0]],b=verts[f[1]],c=verts[f[2]]; return new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).normalize(); }
+function edgeSet(s){ const seen=new Set(),edges=[]; for(const f of s.faces){ for(let i=0;i<f.length;i++){ const a=f[i],b=f[(i+1)%f.length],k=Math.min(a,b)+'_'+Math.max(a,b); if(seen.has(k))continue; seen.add(k); edges.push([a,b]); } } return edges; }
+function buildSolid(s){
+  if(s.group) gEdit.remove(s.group);
+  const g=new THREE.Group(); s.faceMeshes=[];
+  s.faces.forEach((f,fi)=>{ const mesh=new THREE.Mesh(faceGeom(s.verts,f), new THREE.MeshStandardMaterial({color:s.color,transparent:true,opacity:0.55,side:THREE.DoubleSide,roughness:0.5,metalness:0.1})); mesh.userData={solidId:s.id,faceIndex:fi}; g.add(mesh); s.faceMeshes.push(mesh); });
+  const ep=[]; for(const [a,b] of edgeSet(s)) ep.push(s.verts[a],s.verts[b]);
+  g.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(ep), new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.6})));
+  s.handles=[];
+  if(mode==='moveV'){ s.verts.forEach((v,vi)=>{ const h=new THREE.Mesh(new THREE.SphereGeometry(0.55,10,10), new THREE.MeshBasicMaterial({color:0xf4b942})); h.position.copy(v); h.userData={solidId:s.id,vertIndex:vi}; g.add(h); s.handles.push(h); }); }
+  gEdit.add(g); s.group=g;
+}
+function rebuildSolids(){ for(const s of solids) buildSolid(s); }
+function createRect(p1,p2,h){
+  const x0=Math.min(p1.x,p2.x),x1=Math.max(p1.x,p2.x),z0=Math.min(p1.z,p2.z),z1=Math.max(p1.z,p2.z);
+  if(Math.abs(x1-x0)<0.3||Math.abs(z1-z0)<0.3){ flash('Rectángulo muy pequeño','#ff5252'); return null; }
+  const V=(x,y,z)=>new THREE.Vector3(x,y,z);
+  const s={ id:solidUid++, color:0x4dd0e1,
+    verts:[V(x0,0,z0),V(x1,0,z0),V(x1,0,z1),V(x0,0,z1), V(x0,h,z0),V(x1,h,z0),V(x1,h,z1),V(x0,h,z1)],
+    faces:[[3,2,1,0],[4,5,6,7],[0,1,5,4],[1,2,6,5],[2,3,7,6],[3,0,4,7]] };
+  solids.push(s); buildSolid(s);
+  record({op:'rect', p1:{x:+p1.x.toFixed(2),z:+p1.z.toFixed(2)}, p2:{x:+p2.x.toFixed(2),z:+p2.z.toFixed(2)}, h});
+  return s;
+}
+function serializeSolid(s){ return { color:s.color, verts:s.verts.map(v=>[+v.x.toFixed(3),+v.y.toFixed(3),+v.z.toFixed(3)]), faces:s.faces }; }
+function loadSolids(arr){ solids=[]; for(const d of (arr||[])){ const s={id:solidUid++,color:d.color||0x4dd0e1,verts:d.verts.map(a=>new THREE.Vector3(a[0],a[1],a[2])),faces:d.faces}; solids.push(s); buildSolid(s); } }
+
+// --- picking / geometría de arrastre ---
+function setMouseE(e){ const r=canvas.getBoundingClientRect(); mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1; ray.setFromCamera(mouse,camera); }
+function pickFace(){ const ms=[]; for(const s of solids) if(s.faceMeshes) ms.push(...s.faceMeshes); return ray.intersectObjects(ms,false)[0]; }
+function pickHandle(){ const hs=[]; for(const s of solids) if(s.handles) hs.push(...s.handles); return ray.intersectObjects(hs,false)[0]; }
+function closestOnAxis(P,D){ const O=ray.ray.origin,u=ray.ray.direction,w0=new THREE.Vector3().subVectors(P,O); const a=D.dot(D),b=D.dot(u),c=u.dot(u),d=D.dot(w0),e2=u.dot(w0),den=a*c-b*b; if(Math.abs(den)<1e-9)return 0; return (b*e2-c*d)/den; }
+function planeHit(P,N){ const pl=new THREE.Plane().setFromNormalAndCoplanarPoint(N,P),out=new THREE.Vector3(); return ray.ray.intersectPlane(pl,out)?out:null; }
+const isEditMode=()=>['rect','pushpull','moveV','moveE','moveF'].includes(mode);
+
+canvas.addEventListener('pointerdown',(e)=>{
+  if(!isEditMode()) return;
+  setMouseE(e);
+  if(mode==='rect'){
+    const hit=ray.intersectObject(ground)[0]; if(!hit)return; const p={x:hit.point.x,z:hit.point.z};
+    if(!rectP1){ rectP1=p; editDraft=new THREE.Mesh(new THREE.SphereGeometry(0.6,10,10),new THREE.MeshBasicMaterial({color:0x4dd0e1})); editDraft.position.set(p.x,0,p.z); gEdit.add(editDraft); $('edit-hint').textContent='Clic la esquina opuesta…'; }
+    else { createRect(rectP1,p,+$('s-rh').value); if(editDraft){gEdit.remove(editDraft);editDraft=null;} rectP1=null; $('edit-hint').textContent='Rectángulo creado. Extruye su cara superior.'; }
+    return;
+  }
+  if(mode==='pushpull'){
+    const hit=pickFace(); if(!hit)return; const s=solids.find(x=>x.id===hit.object.userData.solidId); const f=s.faces[hit.object.userData.faceIndex];
+    const N=faceNormal(s.verts,f); drag={type:'pushpull',s,indices:[...new Set(f)],N,startPt:hit.point.clone(),t0:closestOnAxis(hit.point,N),startVerts:s.verts.map(v=>v.clone())};
+    controls.enabled=false; return;
+  }
+  if(mode==='moveV'){
+    const hit=pickHandle(); if(!hit)return; const s=solids.find(x=>x.id===hit.object.userData.solidId); const vi=hit.object.userData.vertIndex;
+    drag={type:'vertex',s,indices:[vi],startVerts:s.verts.map(v=>v.clone()),startPt:s.verts[vi].clone(),shift:e.shiftKey};
+    drag.tY0=closestOnAxis(drag.startPt,new THREE.Vector3(0,1,0)); controls.enabled=false; return;
+  }
+  if(mode==='moveE'||mode==='moveF'){
+    const hit=pickFace(); if(!hit)return; const s=solids.find(x=>x.id===hit.object.userData.solidId); const f=s.faces[hit.object.userData.faceIndex];
+    let indices;
+    if(mode==='moveF') indices=[...new Set(f)];
+    else { let best=null,bd=1e9; for(const [a,b] of edgeSet(s)){ const mid=new THREE.Vector3().addVectors(s.verts[a],s.verts[b]).multiplyScalar(0.5); const dd=mid.distanceTo(hit.point); if(dd<bd){bd=dd;best=[a,b];} } indices=best; }
+    drag={type:mode==='moveF'?'face':'edge',s,indices,startVerts:s.verts.map(v=>v.clone()),startPt:hit.point.clone(),shift:e.shiftKey};
+    drag.tY0=closestOnAxis(drag.startPt,new THREE.Vector3(0,1,0)); controls.enabled=false; return;
+  }
+});
+canvas.addEventListener('pointermove',(e)=>{
+  if(!drag)return; setMouseE(e);
+  if(drag.type==='pushpull'){
+    const t=closestOnAxis(drag.startPt,drag.N); const delta=t-drag.t0; drag.delta=delta;
+    for(const i of drag.indices) drag.s.verts[i].copy(drag.startVerts[i]).addScaledVector(drag.N,delta);
+    buildSolid(drag.s); return;
+  }
+  let move;
+  if(drag.shift){ const t=closestOnAxis(drag.startPt,new THREE.Vector3(0,1,0)); move=new THREE.Vector3(0,t-drag.tY0,0); }
+  else { const p=planeHit(drag.startPt,new THREE.Vector3(0,1,0)); if(!p)return; move=new THREE.Vector3(p.x-drag.startPt.x,0,p.z-drag.startPt.z); }
+  drag.move=move; for(const i of drag.indices) drag.s.verts[i].copy(drag.startVerts[i]).add(move);
+  buildSolid(drag.s);
+});
+canvas.addEventListener('pointerup',()=>{
+  if(!drag){ return; }
+  if(drag.type==='pushpull' && Math.abs(drag.delta||0)>0.01) record({op:'pushpull',solidId:drag.s.id,faceIndices:drag.indices,delta:+drag.delta.toFixed(2)});
+  else if(drag.move && drag.move.length()>0.01) record({op:'move',kind:drag.type,solidId:drag.s.id,indices:drag.indices,d:{x:+drag.move.x.toFixed(2),y:+drag.move.y.toFixed(2),z:+drag.move.z.toFixed(2)}});
+  drag=null; controls.enabled=true;
+});
+
+// --- herramientas ---
+const EDIT_HINT='Dibuja un rectángulo en el suelo y extruye su cara superior. Con Punto/Arista/Cara arrastras sub-objetos (Shift = mover en vertical). Esc cancela.';
+function setEditMode(m){
+  mode=m; if(editDraft){gEdit.remove(editDraft);editDraft=null;} rectP1=null; controls.enabled=(m==='orbit');
+  ['btn-rect','btn-pushpull','btn-mv','btn-me','btn-mf'].forEach(id=>$(id).classList.remove('primary'));
+  const map={rect:'btn-rect',pushpull:'btn-pushpull',moveV:'btn-mv',moveE:'btn-me',moveF:'btn-mf'};
+  if(map[m]) $(map[m]).classList.add('primary');
+  rebuildSolids();
+  $('edit-hint').textContent = m==='rect'?'Clic la primera esquina en el suelo…':
+    m==='pushpull'?'Arrastra una cara para extruir (push/pull).':
+    m==='moveV'?'Arrastra un punto. Shift = vertical.':
+    m==='moveE'?'Arrastra una arista. Shift = vertical.':
+    m==='moveF'?'Arrastra una cara. Shift = vertical.':EDIT_HINT;
+}
+function toggleEdit(m){ setEditMode(mode===m?'orbit':m); }
+$('btn-rect').onclick=()=>toggleEdit('rect');
+$('btn-pushpull').onclick=()=>toggleEdit('pushpull');
+$('btn-mv').onclick=()=>toggleEdit('moveV');
+$('btn-me').onclick=()=>toggleEdit('moveE');
+$('btn-mf').onclick=()=>toggleEdit('moveF');
+$('btn-edit-clear').onclick=()=>{ for(const s of solids) gEdit.remove(s.group); solids=[]; flash('Sólidos sketch borrados',''); };
+window.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && isEditMode()) setEditMode('orbit'); });
+$('s-rh').addEventListener('input',(e)=>$('v-rh').textContent=(+e.target.value).toFixed(1));
+
+// ==================== IA DE MASAS (dataset + agente) ====================
+$('ai-endpoint').value = localStorage.getItem('cali_ai_endpoint') || '';
+function currentExample(){
+  return {
+    input:{ predio:{ npn:lot&&lot.npn, direpred:lot&&lot.direpred, area:lotArea, icb, ica }, ring: lot&&lot.ring, levels:levels.map(l=>({name:l.name,elev:l.elev})) },
+    output:{ masses:masses.map(m=>({floors:m.floors,floorH:m.floorH,offset:m.offset,baseZ:m.baseZ})),
+             solids:solids.map(serializeSolid), history:editHistory },
+    resumen:{ area_construida:Math.round(totalBuilt()), indice:+(lotArea?totalBuilt()/lotArea:0).toFixed(3), max_pot:Math.round(maxBuild) }
+  };
+}
+$('btn-dataset').onclick=()=>{
+  let all={}; try{ all=JSON.parse(localStorage.getItem(STUDIES_KEY)||'{}'); }catch(e){}
+  const lines=Object.values(all).map(st=>JSON.stringify({ input:{predio:st.predio,levels:st.levels}, output:{masses:st.masses,solids:st.solids,history:st.history}, resumen:st.resumen }));
+  lines.push(JSON.stringify(currentExample()));
+  download(lines.join('\n'), 'lifecity_masas_dataset.jsonl', 'application/x-ndjson');
+  flash(lines.length+' ejemplo(s) exportado(s) para entrenamiento.','#6bd96b');
+};
+$('btn-ai').onclick=async ()=>{
+  const url=$('ai-endpoint').value.trim();
+  if(url) localStorage.setItem('cali_ai_endpoint',url);
+  if(!url){ flash('Configura el endpoint del agente (backend LangChain/Nemotron en /ai).','#ff5252'); return; }
+  const payload={ predio:{npn:lot&&lot.npn,area:lotArea,icb,ica}, ring:lot&&lot.ring, levels:levels.map(l=>({name:l.name,elev:l.elev})), objetivo:'Proponer volumetría que aproveche el índice sin exceder el POT.' };
+  flash('Consultando IA (Nemotron/LangChain)…','#9c6bff');
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    let nm=0,ns=0;
+    if(Array.isArray(d.masses)){ for(const m of d.masses){ masses.push({id:uid++,floors:+m.floors||3,floorH:+m.floorH||3,offset:+m.offset||0,baseZ:+m.baseZ||0,color:0x9c6bff}); nm++; } rebuildAll(); refresh(); }
+    if(Array.isArray(d.solids)){ for(const s of d.solids){ if(s.p1&&s.p2){ createRect(s.p1,s.p2,+s.h||3); ns++; } } }
+    record({op:'ai_suggest', masses:nm, solids:ns});
+    flash('IA aplicó '+nm+' masa(s) y '+ns+' sólido(s).', nm+ns?'#6bd96b':'#f4b942');
+  }catch(e){ flash('IA no disponible: '+e.message+' (revisa el backend en /ai).','#ff5252'); }
+};
 
 // ===== FLASH / DOWNLOAD =====
 function flash(msg,color){ let t=document.getElementById('flash'); if(!t){ t=document.createElement('div'); t.id='flash'; t.style.cssText='position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(10,13,18,.95);border:1px solid '+(color||'#9c6bff')+';color:#e6ecf5;padding:9px 16px;font-size:11px;z-index:10;border-radius:6px;max-width:80%'; document.getElementById('center').appendChild(t);} t.style.borderColor=color||'#9c6bff'; t.textContent=msg; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3600); }
@@ -557,7 +734,9 @@ function collectStudy(){
     resumen:{ area_lote:lotArea, icb, ica, masas:masses.length, area_construida:Math.round(totalBuilt()), indice:+(lotArea?totalBuilt()/lotArea:0).toFixed(3), altura:+topOfStack().toFixed(2) },
     levels: levels.map(l=>({id:l.id,name:l.name,elev:l.elev})),
     walls: walls.map(w=>({id:w.id,baseId:w.baseId,topId:w.topId,p1:w.p1,p2:w.p2,thickness:w.thickness})),
-    masses: masses.map(m=>({id:m.id,floors:m.floors,floorH:m.floorH,offset:m.offset,baseZ:m.baseZ,color:m.color})) };
+    masses: masses.map(m=>({id:m.id,floors:m.floors,floorH:m.floorH,offset:m.offset,baseZ:m.baseZ,color:m.color})),
+    solids: solids.map(serializeSolid),
+    history: editHistory };
 }
 function saveStudy(){
   if(!lot){ flash('Abre un predio desde el visor para guardar el estudio.','#ff5252'); return; }
@@ -572,10 +751,11 @@ function restoreStudy(st){
   walls=[]; wid=1; for(const w of (st.walls||[])){ walls.push({...w}); wid=Math.max(wid,w.id+1); } buildWalls(); refreshWallUI();
   masses=[]; uid=1; sel=null; for(const m of (st.masses||[])){ const mm={...m}; masses.push(mm); uid=Math.max(uid,m.id+1); buildMass(mm); }
   sel=masses[masses.length-1]||null; rebuildAll(); refresh();
+  for(const s of solids) if(s.group) gEdit.remove(s.group); loadSolids(st.solids); editHistory=st.history||[];
 }
 
 // ===== LÁMINA (ISO + CENITAL + FRONTAL) =====
-function modelBounds(){ const box=new THREE.Box3(); if(gMasses.children.length) box.expandByObject(gMasses); if(gWalls.children.length) box.expandByObject(gWalls); if(gLot.children.length) box.expandByObject(gLot); if(box.isEmpty()) box.set(new THREE.Vector3(-20,0,-20),new THREE.Vector3(20,20,20)); return box; }
+function modelBounds(){ const box=new THREE.Box3(); if(gMasses.children.length) box.expandByObject(gMasses); if(gWalls.children.length) box.expandByObject(gWalls); if(gEdit.children.length) box.expandByObject(gEdit); if(gLot.children.length) box.expandByObject(gLot); if(box.isEmpty()) box.set(new THREE.Vector3(-20,0,-20),new THREE.Vector3(20,20,20)); return box; }
 function captureView(setup){
   const oldPos=camera.position.clone(), oldTgt=controls.target.clone();
   setup(); camera.updateProjectionMatrix(); renderer.render(scene,camera);
