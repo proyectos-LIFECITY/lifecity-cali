@@ -37,6 +37,8 @@
   .submit{width:100%;padding:12px;background:var(--accent);color:#1a1305;border:0;border-radius:8px;font-family:var(--mono);font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
   .submit:hover{background:#ffc857}
   .submit:disabled{opacity:.6;cursor:progress}
+  .guest{display:block;text-align:center;margin-top:12px;padding:11px;border:1px dashed var(--line);border-radius:8px;color:var(--accent-3,#4dd0e1);text-decoration:none;font-family:var(--mono);font-size:12px;transition:.15s}
+  .guest:hover{border-color:var(--accent-3,#4dd0e1);background:rgba(77,208,225,.06)}
   .msg{margin-top:14px;font-size:11px;padding:10px 12px;border-radius:8px;display:none;line-height:1.5}
   .msg.show{display:block}
   .msg.err{background:rgba(255,82,82,.12);border:1px solid var(--accent-2);color:#ffb3b3}
@@ -82,6 +84,7 @@
       <button type="submit" class="submit" id="submit">Entrar a la plataforma</button>
       <div class="msg" id="msg"></div>
     </form>
+    <a href="acceso.html" class="guest" id="guest">Entrar como invitado (sin iniciar sesión) →</a>
     <div class="backend local" id="backend"><span class="dot"></span><span id="backend-txt">Modo local (demo)</span></div>
     <div class="hint" id="demohint">Demo: <code>demo@lifecity.com.co</code> / <code>lifecity</code></div>
   </div>
@@ -95,7 +98,7 @@
 const CFG = window.SUPABASE_CONFIG || {};
 const SUPABASE_URL = CFG.url || '';
 const SUPABASE_ANON_KEY = CFG.anonKey || '';
-const REDIRECT_AFTER_LOGIN = 'ciudades.html';
+const REDIRECT_AFTER_LOGIN = 'cali_aec_viewer.html';
 const SESSION_KEY = 'lifecity_session';
 const USERS_KEY = 'lifecity_users';
 
@@ -187,20 +190,10 @@ async function handleLocal(email, pass, name){
   setTimeout(()=> location.href = REDIRECT_AFTER_LOGIN, 500);
 }
 
-// Guarda el registro como "lead" en una tabla visible de Supabase (no bloqueante).
-async function captureLead(email, name){
-  if (!supa) return;
-  try {
-    const { error } = await supa.from('leads').insert({ email, name: name || null, source: 'signup', user_agent: navigator.userAgent });
-    if (error) console.warn('Lead no guardado:', error.message);
-  } catch (e) { console.warn('Lead no guardado:', e.message); }
-}
-
 async function handleSupa(email, pass, name){
   if (mode === 'reg'){
     const { data, error } = await supa.auth.signUp({ email, password: pass, options:{ data:{ name } } });
     if (error) throw error;
-    await captureLead(email, name);
     if (data.session){ setSession(email, name); show('ok','Cuenta creada. Entrando…'); setTimeout(()=>location.href=REDIRECT_AFTER_LOGIN,500); }
     else { show('ok','Cuenta creada. Revisa tu correo para confirmar y luego inicia sesión.'); $('submit').disabled=false; setMode('login'); }
   } else {

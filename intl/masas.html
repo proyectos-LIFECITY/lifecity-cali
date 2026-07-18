@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<script src="auth.js"></script>
+<title>Cali · Estudio de Masas (Conceptual Massing)</title>
+<style>
+  :root{
+    --bg-0:#0a0d12;--bg-1:#11161e;--bg-2:#1a2230;--line:#2a3548;--text:#e6ecf5;--text-dim:#8b97aa;
+    --accent:#f4b942;--accent-2:#ff5252;--accent-3:#4dd0e1;--ok:#6bd96b;--viol:#9c6bff;
+    --mono:'JetBrains Mono','SF Mono','Menlo',monospace;--display:'Space Grotesk','Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-0);color:var(--text);font-family:var(--mono);font-size:12px}
+  #app{display:grid;grid-template-columns:300px 1fr 320px;height:100vh}
+  aside{background:linear-gradient(180deg,var(--bg-1),var(--bg-0));overflow-y:auto;padding:18px 16px;display:flex;flex-direction:column;gap:16px}
+  #left{border-right:1px solid var(--line)} #right{border-left:1px solid var(--line)}
+  .brand{display:flex;align-items:baseline;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+  .brand h1{font-family:var(--display);font-size:15px;font-weight:600}
+  .brand .tag{font-size:9px;color:var(--viol);letter-spacing:1.5px;text-transform:uppercase}
+  .section{display:flex;flex-direction:column;gap:8px}
+  .section h2{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);display:flex;justify-content:space-between;align-items:center}
+  .section h2 .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .btn{width:100%;padding:9px 12px;background:var(--bg-2);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;transition:all .15s}
+  .btn:hover{background:#232c3d;border-color:var(--accent)}
+  .btn .ic{color:var(--accent);font-weight:700}
+  .btn.primary{background:var(--accent);color:#1a1305;border-color:var(--accent);font-weight:600}
+  .btn.viol{border-color:var(--viol)} .btn.viol .ic{color:var(--viol)}
+  .btn.danger:hover{border-color:var(--accent-2)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .ctl{display:flex;flex-direction:column;gap:4px}
+  .ctl label{font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;display:flex;justify-content:space-between}
+  .ctl label .v{color:var(--accent)}
+  .ctl input[type=range]{width:100%;accent-color:var(--accent)}
+  .toggle{display:flex;align-items:center;gap:8px;cursor:pointer}.toggle input{accent-color:var(--accent)}
+  .hint{font-size:10px;color:var(--text-dim);line-height:1.5}
+  #center{position:relative;background:#000}#canvas{width:100%;height:100%;display:block}
+  .hud{position:absolute;pointer-events:none;font-size:10px;color:var(--text-dim);letter-spacing:1px}
+  .hud-tl{top:14px;left:14px}.hud-br{bottom:14px;right:14px;text-align:right}.hud .v{color:var(--accent)}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .stat{background:var(--bg-2);border:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:2px}
+  .stat .lbl{font-size:8px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase}
+  .stat .val{font-family:var(--display);font-size:17px;font-weight:600;color:var(--accent)}
+  .stat .val.viol{color:var(--viol)}
+  .meter{background:var(--bg-2);border:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:6px}
+  .meter .bar{height:10px;background:var(--bg-0);border:1px solid var(--line);position:relative;overflow:hidden}
+  .meter .bar span{position:absolute;left:0;top:0;bottom:0;background:var(--ok);transition:width .2s}
+  .meter .bar span.over{background:var(--accent-2)}
+  .meter .lbls{display:flex;justify-content:space-between;font-size:10px}
+  .mass-card{background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--viol);padding:10px;display:flex;flex-direction:column;gap:4px;cursor:pointer;position:relative}
+  .mass-card.sel{background:#2a3548;border-color:var(--accent)}
+  .mass-card .t{font-family:var(--display);font-weight:600;font-size:12px}
+  .mass-card .m{font-size:10px;color:var(--text-dim)}.mass-card .m b{color:var(--text)}
+  .mass-card .del{position:absolute;top:8px;right:8px;color:var(--text-dim);cursor:pointer}.mass-card .del:hover{color:var(--accent-2)}
+  .empty{color:var(--text-dim);font-size:11px;padding:10px;text-align:center;font-style:italic}
+  .predio-head{background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--accent-3);padding:10px;display:flex;flex-direction:column;gap:4px}
+  .predio-head .npn{color:var(--accent-3);font-size:11px;word-break:break-all}
+  .predio-head .kv{font-size:10px;color:var(--text-dim)}.predio-head .kv b{color:var(--text)}
+  ::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:var(--bg-0)}::-webkit-scrollbar-thumb{background:var(--line)}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+</head>
+<body>
+<div id="app">
+  <aside id="left">
+    <div class="brand"><h1>ESTUDIO DE MASAS</h1><span class="tag">CONCEPTUAL · REVIT-LIKE</span><button id="btn-logout" title="Cerrar sesión" style="margin-left:auto;background:var(--bg-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:5px 8px;cursor:pointer">⏻</button></div>
+
+    <div class="section">
+      <h2><span>Predio</span><span class="dot"></span></h2>
+      <div class="predio-head" id="predio-head"><div class="empty">Sin predio. Ábrelo desde el visor.</div></div>
+    </div>
+
+    <div class="section">
+      <h2><span>Nueva masa</span><span class="dot"></span></h2>
+      <div class="ctl"><label>Pisos <span class="v" id="v-floors">10</span></label><input type="range" id="s-floors" min="1" max="60" value="10"></div>
+      <div class="ctl"><label>Altura de piso (m) <span class="v" id="v-fh">3.0</span></label><input type="range" id="s-fh" min="2.4" max="6" step="0.1" value="3"></div>
+      <div class="ctl"><label>Retiro / aislamiento (m) <span class="v" id="v-off">0</span></label><input type="range" id="s-off" min="0" max="15" step="0.5" value="0"></div>
+      <label class="toggle"><input type="checkbox" id="c-stack"><span>Apilar sobre la masa superior (torre/podio)</span></label>
+      <button class="btn viol" id="btn-add"><span class="ic">＋</span> Crear masa</button>
+      <div class="hint">Cada masa extruye la huella del lote (con retiro) según pisos × altura. Ajusta la masa seleccionada con estos mismos deslizadores.</div>
+    </div>
+
+    <div class="section">
+      <h2><span>Nube de puntos</span><span class="dot" style="background:#6bd96b"></span></h2>
+      <label class="btn" for="file-cloud"><span class="ic">⋮⋮</span> Importar nube (.ply .pcd .xyz .csv)</label>
+      <input type="file" id="file-cloud" accept=".ply,.pcd,.xyz,.pts,.txt,.csv,.asc" style="display:none">
+      <div class="row2">
+        <button class="btn" id="btn-cloud-points"><span class="ic">∴</span> Puntos</button>
+        <button class="btn" id="btn-cloud-mesh"><span class="ic">△</span> Mesh</button>
+      </div>
+      <div class="ctl"><label>Tamaño de punto <span class="v" id="v-psize">1.5</span></label><input type="range" id="s-psize" min="0.3" max="6" step="0.1" value="1.5"></div>
+      <label class="toggle"><input type="checkbox" id="c-zup" checked><span>Z es la altura (topografía)</span></label>
+      <button class="btn danger" id="btn-cloud-clear"><span class="ic">✕</span> Quitar nube</button>
+      <div class="hint" id="cloud-info">PLY/PCD (con o sin color) o ASCII X Y Z [R G B]. Malla por triangulación Delaunay 2.5D.</div>
+    </div>
+
+    <div class="section">
+      <h2><span>Niveles (Revit)</span><span class="dot"></span></h2>
+      <div class="row2">
+        <div class="ctl"><label>Nombre</label><input id="lvl-name" placeholder="N1"></div>
+        <div class="ctl"><label>Elev (m)</label><input id="lvl-elev" type="number" step="0.1" value="0"></div>
+      </div>
+      <button class="btn" id="btn-add-level"><span class="ic">＋</span> Agregar nivel</button>
+      <div id="level-list"><div class="empty">Sin niveles. Agrega N0, N1…</div></div>
+    </div>
+
+    <div class="section">
+      <h2><span>Muros anclados</span><span class="dot" style="background:#9c6bff"></span></h2>
+      <div class="row2">
+        <div class="ctl"><label>Nivel base</label><select id="wall-base"></select></div>
+        <div class="ctl"><label>Nivel superior</label><select id="wall-top"></select></div>
+      </div>
+      <div class="ctl"><label>Espesor (m) <span class="v" id="v-wt">0.20</span></label><input type="range" id="s-wt" min="0.1" max="1" step="0.05" value="0.2"></div>
+      <button class="btn viol" id="btn-draw-wall"><span class="ic">✎</span> Dibujar muro (2 clics)</button>
+      <div class="hint" id="wall-hint">Elige base/superior y traza la directriz en planta. El muro queda anclado: si cambias la elevación de un nivel, el muro se ajusta en top y base.</div>
+      <div id="wall-list"></div>
+    </div>
+
+    <div class="section">
+      <h2><span>Vista</span><span class="dot"></span></h2>
+      <div class="row2">
+        <button class="btn" id="btn-top"><span class="ic">⊥</span> Cenital</button>
+        <button class="btn" id="btn-iso"><span class="ic">◇</span> Iso</button>
+      </div>
+      <label class="toggle"><input type="checkbox" id="c-floors" checked><span>Mostrar líneas de piso</span></label>
+      <label class="toggle"><input type="checkbox" id="c-context" checked><span>Contexto (suelo/grilla)</span></label>
+    </div>
+
+    <div class="section">
+      <h2><span>Guardar / Exportar</span><span class="dot"></span></h2>
+      <button class="btn primary" id="btn-save-study"><span class="ic">✓</span> Guardar estudio</button>
+      <button class="btn" id="btn-sheet"><span class="ic">▭</span> Exportar lámina (ISO+cenital+frontal)</button>
+      <button class="btn viol" id="btn-ifc"><span class="ic">▣</span> Exportar IFC (masas + muros + niveles)</button>
+      <button class="btn" id="btn-export"><span class="ic">⇩</span> Exportar masas (JSON)</button>
+      <button class="btn" id="btn-back"><span class="ic">←</span> Volver al visor</button>
+    </div>
+  </aside>
+
+  <main id="center">
+    <canvas id="canvas"></canvas>
+    <div class="hud hud-tl"><div><span>PREDIO </span><span class="v" id="hud-npn">—</span></div><div><span>ÁREA LOTE </span><span class="v" id="hud-area">—</span></div></div>
+    <div class="hud hud-br"><div>CALI · MASSING STUDY</div><div style="color:var(--viol)">v0.1 · LIFE CITY BIM</div></div>
+  </main>
+
+  <aside id="right">
+    <div class="section">
+      <h2><span>Aprovechamiento (POT)</span><span class="dot"></span></h2>
+      <div class="stat-grid">
+        <div class="stat"><span class="lbl">ICB básico</span><span class="val" id="m-icb">—</span></div>
+        <div class="stat"><span class="lbl">ICA adicional</span><span class="val viol" id="m-ica">—</span></div>
+      </div>
+      <div class="meter">
+        <div class="lbls"><span>Área construida</span><span id="mtr-txt">0 / 0 m²</span></div>
+        <div class="bar"><span id="mtr-bar" style="width:0%"></span></div>
+        <div class="lbls"><span class="hint" id="mtr-note">Define un predio con ICB/ICA para ver el máximo.</span></div>
+      </div>
+    </div>
+    <div class="section">
+      <h2><span>Métricas</span><span class="dot"></span></h2>
+      <div class="stat-grid">
+        <div class="stat"><span class="lbl">Masas</span><span class="val" id="m-count">0</span></div>
+        <div class="stat"><span class="lbl">Altura máx</span><span class="val" id="m-h">0 m</span></div>
+        <div class="stat"><span class="lbl">Área constr.</span><span class="val" id="m-built">0</span></div>
+        <div class="stat"><span class="lbl">Índice logrado</span><span class="val viol" id="m-idx">0.00</span></div>
+      </div>
+    </div>
+    <div class="section">
+      <h2><span>Masas</span><span class="dot"></span></h2>
+      <div id="mass-list"><div class="empty">Sin masas. Crea una con "Crear masa".</div></div>
+    </div>
+  </aside>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+import { PCDLoader } from 'three/addons/loaders/PCDLoader.js';
+import Delaunator from 'https://cdn.jsdelivr.net/npm/delaunator@5.0.1/+esm';
+
+const $=(id)=>document.getElementById(id);
+const R=6378137;
+
+// ---- handoff ----
+let lot=null;
+try{ lot=JSON.parse(localStorage.getItem('cali_massing_handoff')||'null'); }catch(e){}
+
+// ---- footprint desde el anillo lat/lon centrado en el centroide ----
+function llToLocal(lat,lon,clat,clon){
+  const x=(lon-clon)*Math.PI/180*R*Math.cos(clat*Math.PI/180);
+  const z=-(lat-clat)*Math.PI/180*R;
+  return {x,z};
+}
+function shoelace(pts){ let a=0; for(let i=0,j=pts.length-1;i<pts.length;j=i++){ a+=(pts[j].x*pts[i].z-pts[i].x*pts[j].z);} return Math.abs(a/2); }
+
+let footprint=[]; let lotArea=0; let icb=null, ica=null, maxBuild=0;
+if(lot && lot.ring && lot.centroid){
+  const c=lot.centroid;
+  footprint=lot.ring.map(([lon,lat])=>llToLocal(lat,lon,c.lat,c.lon));
+  // quitar último si repite el primero
+  if(footprint.length>2){ const a=footprint[0],b=footprint[footprint.length-1]; if(Math.abs(a.x-b.x)<1e-6&&Math.abs(a.z-b.z)<1e-6) footprint.pop(); }
+  lotArea=lot.area || Math.round(shoelace(footprint));
+  icb=lot.icb; ica=lot.ica;
+  maxBuild=(lotArea)*(((icb||0)+(ica||0)));
+  // Ciudades cuya norma viene en pisos máximos (Bogotá POT 555, zoning USA): huella × pisos
+  if(!maxBuild && lot.pisosMax) maxBuild=lotArea*lot.pisosMax;
+}
+
+// ---- offset (retiro) hacia adentro por bisectriz de aristas ----
+function polygonAreaSigned(p){ let a=0; for(let i=0,j=p.length-1;i<p.length;j=i++){ a+=(p[j].x*p[i].z-p[i].x*p[j].z);} return a/2; }
+function offsetPolygon(pts, dist){
+  if(dist<=0) return pts.slice();
+  const n=pts.length; if(n<3) return pts.slice();
+  // Offset por bisectriz de vértice, a distancia dd y sentido sign (+/-).
+  function build(sign, dd){
+    const out=[];
+    for(let i=0;i<n;i++){
+      const prev=pts[(i-1+n)%n], cur=pts[i], next=pts[(i+1)%n];
+      let e1={x:cur.x-prev.x,z:cur.z-prev.z}, e2={x:next.x-cur.x,z:next.z-cur.z};
+      const l1=Math.hypot(e1.x,e1.z)||1, l2=Math.hypot(e2.x,e2.z)||1;
+      e1={x:e1.x/l1,z:e1.z/l1}; e2={x:e2.x/l2,z:e2.z/l2};
+      const n1={x:e1.z,z:-e1.x}, n2={x:e2.z,z:-e2.x}; // normales de arista
+      let bx=n1.x+n2.x, bz=n1.z+n2.z; const bl=Math.hypot(bx,bz);
+      if(bl<1e-6){ out.push({x:cur.x+sign*n1.x*dd,z:cur.z+sign*n1.z*dd}); continue; }
+      bx/=bl; bz/=bl;
+      const cosHalf=Math.max(0.35, bx*n1.x+bz*n1.z);
+      const d=sign*dd/cosHalf;
+      out.push({x:cur.x+bx*d,z:cur.z+bz*d});
+    }
+    return out;
+  }
+  const a0=shoelace(pts);
+  // Retiro válido = reduce área sin invertir el polígono. Se prueban ambos sentidos.
+  function tryDist(dd){
+    const cands=[build(1,dd),build(-1,dd)]
+      .map(p=>({p,a:shoelace(p),ok:polygonAreaSigned(p)*polygonAreaSigned(pts)>0}))
+      .filter(c=>c.ok && c.a>a0*0.04 && c.a<a0*0.999);
+    if(!cands.length) return null;
+    cands.sort((x,y)=>y.a-x.a);
+    return cands[0].p;
+  }
+  // Intenta el retiro pedido; si colapsa el lote (angosto), reduce hasta el máximo factible.
+  for(let dd=dist; dd>0.05; dd-=Math.max(0.1,dist*0.08)){ const r=tryDist(dd); if(r) return r; }
+  return pts.slice();
+}
+function toShape(pts){
+  const s=new THREE.Shape();
+  s.moveTo(pts[0].x,-pts[0].z);
+  for(let i=1;i<pts.length;i++) s.lineTo(pts[i].x,-pts[i].z);
+  return s;
+}
+
+// ===== THREE =====
+const canvas=$('canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setClearColor(0x05080d,1); renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene(); scene.fog=new THREE.Fog(0x05080d,600,2600);
+const camera=new THREE.PerspectiveCamera(45,1,0.5,20000); camera.position.set(160,150,160);
+const controls=new OrbitControls(camera,canvas); controls.enableDamping=true; controls.dampingFactor=0.08; controls.maxPolarAngle=Math.PI*0.495; controls.minDistance=10; controls.maxDistance=3000;
+scene.add(new THREE.AmbientLight(0x4a5878,0.75));
+const sun=new THREE.DirectionalLight(0xffd9a0,1.15); sun.position.set(120,220,90); scene.add(sun);
+const fill=new THREE.DirectionalLight(0x6080ff,0.35); fill.position.set(-120,90,-140); scene.add(fill);
+
+const gContext=new THREE.Group(); scene.add(gContext);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(4000,4000),new THREE.MeshStandardMaterial({color:0x0d1218,roughness:0.95}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-0.2; gContext.add(ground);
+const grid=new THREE.GridHelper(2000,200,0x1a2230,0x11161e); gContext.add(grid);
+
+// lote
+const gLot=new THREE.Group(); scene.add(gLot);
+function drawLot(){
+  gLot.clear();
+  if(footprint.length<3) return;
+  const shape=toShape(footprint);
+  const geo=new THREE.ShapeGeometry(shape); geo.rotateX(-Math.PI/2);
+  const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x3a6ea5,transparent:true,opacity:0.35,side:THREE.DoubleSide,roughness:0.9}));
+  mesh.position.y=0.05; gLot.add(mesh);
+  const pts=footprint.map(p=>new THREE.Vector3(p.x,0.15,p.z)); pts.push(pts[0].clone());
+  gLot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x6fb3ff})));
+}
+
+// ===== MASAS =====
+const gMasses=new THREE.Group(); scene.add(gMasses);
+let masses=[]; let sel=null; let uid=1;
+const palette=[0x9c6bff,0x4dd0e1,0xf4b942,0x6bd96b,0xff8f6b,0xff5b9c];
+
+function buildMass(m){
+  if(m.group){ gMasses.remove(m.group); m.group.traverse(o=>{o.geometry&&o.geometry.dispose&&o.geometry.dispose();}); }
+  const g=new THREE.Group();
+  const pts=offsetPolygon(footprint,m.offset);
+  m.fArea=shoelace(pts);
+  const h=m.floors*m.floorH;
+  const shape=toShape(pts);
+  const geo=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false});
+  geo.rotateX(-Math.PI/2); geo.translate(0,m.baseZ,0);
+  const selc=(sel===m);
+  const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:m.color,transparent:true,opacity:selc?0.8:0.62,roughness:0.5,metalness:0.15,emissive:selc?m.color:0x000000,emissiveIntensity:selc?0.15:0}));
+  mesh.userData={massId:m.id}; g.add(mesh);
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:selc?0xffffff:m.color,transparent:true,opacity:selc?0.9:0.5})));
+  // líneas de piso
+  if($('c-floors').checked){
+    const ring=pts.map(p=>new THREE.Vector3(p.x,0,p.z)); ring.push(ring[0].clone());
+    for(let f=1;f<m.floors;f++){
+      const y=m.baseZ+f*m.floorH;
+      const fr=ring.map(p=>new THREE.Vector3(p.x,y,p.z));
+      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(fr),new THREE.LineBasicMaterial({color:m.color,transparent:true,opacity:0.25})));
+    }
+  }
+  gMasses.add(g); m.group=g;
+}
+function topOfStack(){ let t=0; for(const m of masses) t=Math.max(t,m.baseZ+m.floors*m.floorH); return t; }
+function addMass(){
+  if(footprint.length<3){ return; }
+  const m={id:uid++,floors:+$('s-floors').value,floorH:+$('s-fh').value,offset:+$('s-off').value,
+    baseZ:$('c-stack').checked?topOfStack():0,color:palette[(uid-2)%palette.length]};
+  masses.push(m); sel=m; buildMass(m); refresh();
+}
+function rebuildAll(){ for(const m of masses) buildMass(m); }
+function deleteMass(id){ const m=masses.find(x=>x.id===id); if(m&&m.group) gMasses.remove(m.group); masses=masses.filter(x=>x.id!==id); if(sel&&sel.id===id) sel=masses[masses.length-1]||null; rebuildAll(); refresh(); }
+function selectMass(m){ sel=m; if(m){ $('s-floors').value=m.floors; $('s-fh').value=m.floorH; $('s-off').value=m.offset; syncLabels(); } rebuildAll(); refresh(); }
+
+function totalBuilt(){ let a=0; for(const m of masses) a+=m.fArea*m.floors; return a; }
+function refresh(){
+  $('m-count').textContent=masses.length;
+  const h=topOfStack(); $('m-h').textContent=h.toFixed(1)+' m';
+  const built=Math.round(totalBuilt()); $('m-built').textContent=built.toLocaleString();
+  const idx=lotArea?built/lotArea:0; $('m-idx').textContent=idx.toFixed(2);
+  // meter
+  const max=Math.round(maxBuild);
+  $('mtr-txt').textContent=`${built.toLocaleString()} / ${max?max.toLocaleString():'—'} m²`;
+  const pct=max?Math.min(100,built/max*100):0;
+  const bar=$('mtr-bar'); bar.style.width=pct+'%'; bar.classList.toggle('over',max&&built>max);
+  const normTxt=(icb||ica)?`índice ${((icb||0)+(ica||0)).toFixed(2)}`:(lot&&lot.pisosMax?`${lot.pisosMax} pisos máx`:'');
+  $('mtr-note').textContent=max?(built>max?`Excede ${(built-max).toLocaleString()} m² el máximo normativo`:`Disponible ${(max-built).toLocaleString()} m²${normTxt?' ('+normTxt+')':''}`):'Predio sin índice/pisos máx de norma.';
+  // lista
+  const list=$('mass-list');
+  if(!masses.length){ list.innerHTML='<div class="empty">Sin masas. Crea una con "Crear masa".</div>'; return; }
+  list.innerHTML='';
+  masses.forEach((m,i)=>{
+    const c=document.createElement('div'); c.className='mass-card'+(sel===m?' sel':'');
+    c.innerHTML=`<span class="del">✕</span><div class="t" style="color:#${m.color.toString(16).padStart(6,'0')}">Masa ${i+1}</div>
+      <div class="m"><b>${m.floors}</b> pisos × <b>${m.floorH.toFixed(1)}</b> m = <b>${(m.floors*m.floorH).toFixed(1)}</b> m · retiro <b>${m.offset}</b> m</div>
+      <div class="m">Huella <b>${Math.round(m.fArea).toLocaleString()}</b> m² · constr. <b>${Math.round(m.fArea*m.floors).toLocaleString()}</b> m²${m.baseZ>0?' · sobre +'+m.baseZ.toFixed(1)+'m':''}</div>`;
+    c.querySelector('.del').onclick=(e)=>{e.stopPropagation();deleteMass(m.id);};
+    c.onclick=()=>selectMass(m);
+    list.appendChild(c);
+  });
+}
+
+// ===== sliders =====
+function syncLabels(){ $('v-floors').textContent=$('s-floors').value; $('v-fh').textContent=(+$('s-fh').value).toFixed(1); $('v-off').textContent=$('s-off').value; }
+['s-floors','s-fh','s-off'].forEach(id=>$(id).addEventListener('input',()=>{
+  syncLabels();
+  if(sel){ sel.floors=+$('s-floors').value; sel.floorH=+$('s-fh').value; sel.offset=+$('s-off').value;
+    // re-apila las masas que estaban encima si cambió altura
+    buildMass(sel); refresh(); }
+}));
+$('btn-add').onclick=addMass;
+$('c-floors').onchange=()=>rebuildAll();
+$('c-context').onchange=(e)=>gContext.visible=e.target.checked;
+$('btn-top').onclick=()=>{camera.position.set(0,300,0.1);controls.target.set(0,0,0);};
+$('btn-iso').onclick=()=>{const h=Math.max(120,topOfStack()*1.4);camera.position.set(h,h,h);controls.target.set(0,topOfStack()/2,0);};
+$('btn-back').onclick=()=>{ if(history.length>1) history.back(); else location.href='cali_aec_viewer.html'; };
+$('btn-export').onclick=()=>{
+  const data={predio:lot?{npn:lot.npn,direpred:lot.direpred,area:lotArea,icb,ica}:null,
+    masas:masses.map((m,i)=>({n:i+1,pisos:m.floors,altura_piso:m.floorH,altura_total:+(m.floors*m.floorH).toFixed(2),retiro:m.offset,base:m.baseZ,huella_m2:Math.round(m.fArea),construida_m2:Math.round(m.fArea*m.floors)})),
+    resumen:{area_construida_total:Math.round(totalBuilt()),indice_logrado:+(lotArea?totalBuilt()/lotArea:0).toFixed(3),max_pot:Math.round(maxBuild)}};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=(lot&&lot.npn?lot.npn:'masas')+'_masas.json'; a.click();
+};
+
+// ===== NUBE DE PUNTOS (puntos / mesh) =====
+const gCloud=new THREE.Group(); scene.add(gCloud);
+const plyLoader=new PLYLoader(); const pcdLoader=new PCDLoader();
+let cloud={ pos:null, col:null, count:0, mode:'points', obj:null, range:[0,0] };
+
+function loadCloudFile(file){
+  const name=file.name.toLowerCase();
+  const reader=new FileReader();
+  $('cloud-info').textContent='Procesando '+file.name+'…';
+  try{
+    if(name.endsWith('.ply')){ reader.onload=()=>{ try{ ingestGeometry(plyLoader.parse(reader.result)); }catch(e){ $('cloud-info').textContent='Error PLY: '+e.message; } }; reader.readAsArrayBuffer(file); }
+    else if(name.endsWith('.pcd')){ reader.onload=()=>{ try{ const o=pcdLoader.parse(reader.result,''); ingestGeometry(o.geometry); }catch(e){ $('cloud-info').textContent='Error PCD: '+e.message; } }; reader.readAsArrayBuffer(file); }
+    else { reader.onload=()=>ingestAscii(reader.result); reader.readAsText(file); }
+  }catch(e){ $('cloud-info').textContent='Error: '+e.message; }
+}
+function ingestGeometry(geom){
+  const pos=geom.getAttribute('position'); const col=geom.getAttribute('color');
+  const xyz=[], rgb=[]; for(let i=0;i<pos.count;i++){ xyz.push(pos.getX(i),pos.getY(i),pos.getZ(i)); if(col) rgb.push(col.getX(i),col.getY(i),col.getZ(i)); }
+  buildCloud(xyz, col?rgb:null, 1);
+}
+function ingestAscii(text){
+  const xyz=[], rgb=[]; let hasC=false, big=false;
+  for(const line of text.split(/\r?\n/)){
+    const n=line.trim().split(/[\s,;]+/).map(Number);
+    if(n.length>=3 && n.slice(0,3).every(v=>!isNaN(v))){ xyz.push(n[0],n[1],n[2]);
+      if(n.length>=6 && n.slice(3,6).every(v=>!isNaN(v))){ rgb.push(n[3],n[4],n[5]); hasC=true; if(n[3]>1||n[4]>1||n[5]>1) big=true; } }
+  }
+  if(!xyz.length){ $('cloud-info').textContent='No se hallaron puntos (X Y Z por línea).'; return; }
+  buildCloud(xyz, hasC?rgb:null, big?255:1);
+}
+function buildCloud(xyz, rgb, cmax){
+  const zup=$('c-zup').checked; const N=xyz.length/3;
+  const pos=new Float32Array(N*3); const col=rgb?new Float32Array(N*3):null;
+  let sx=0,sz=0,minY=Infinity,maxY=-Infinity; const tmp=new Float32Array(N*3);
+  for(let i=0;i<N;i++){ const x=xyz[i*3],y=xyz[i*3+1],z=xyz[i*3+2];
+    let wx,wy,wz; if(zup){wx=x;wy=z;wz=-y;} else {wx=x;wy=y;wz=z;}
+    tmp[i*3]=wx;tmp[i*3+1]=wy;tmp[i*3+2]=wz; sx+=wx; sz+=wz; if(wy<minY)minY=wy; if(wy>maxY)maxY=wy; }
+  const cx=sx/N, cz=sz/N;
+  for(let i=0;i<N;i++){ pos[i*3]=tmp[i*3]-cx; pos[i*3+1]=tmp[i*3+1]-minY; pos[i*3+2]=tmp[i*3+2]-cz;
+    if(col){ col[i*3]=rgb[i*3]/cmax; col[i*3+1]=rgb[i*3+1]/cmax; col[i*3+2]=rgb[i*3+2]/cmax; } }
+  cloud={ pos, col, count:N, mode:cloud.mode, obj:null, range:[0,maxY-minY] };
+  buildCloudView(cloud.mode);
+  $('cloud-info').textContent=`${N.toLocaleString()} puntos · alto ${(maxY-minY).toFixed(1)} m · vista: ${cloud.mode==='points'?'puntos':'malla'}`;
+}
+function buildCloudView(mode){
+  if(!cloud.pos) return;
+  cloud.mode=mode; gCloud.clear();
+  const geom=new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(cloud.pos,3));
+  if(cloud.col) geom.setAttribute('color', new THREE.BufferAttribute(cloud.col,3));
+  if(mode==='points'){
+    const mat=new THREE.PointsMaterial({ size:+$('s-psize').value, sizeAttenuation:true, vertexColors:!!cloud.col, color:cloud.col?0xffffff:0x6bd96b });
+    cloud.obj=new THREE.Points(geom,mat);
+  } else {
+    const N=cloud.count; const flat=new Float64Array(N*2);
+    for(let i=0;i<N;i++){ flat[i*2]=cloud.pos[i*3]; flat[i*2+1]=cloud.pos[i*3+2]; }
+    const del=new Delaunator(flat); geom.setIndex(Array.from(del.triangles)); geom.computeVertexNormals();
+    const mat=new THREE.MeshStandardMaterial({ vertexColors:!!cloud.col, color:cloud.col?0xffffff:0x8fbf8f, roughness:0.9, metalness:0, side:THREE.DoubleSide });
+    cloud.obj=new THREE.Mesh(geom,mat);
+  }
+  gCloud.add(cloud.obj);
+}
+$('file-cloud').onchange=(e)=>{ if(e.target.files[0]) loadCloudFile(e.target.files[0]); e.target.value=''; };
+$('btn-cloud-points').onclick=()=>{ if(cloud.pos){ buildCloudView('points'); $('cloud-info').textContent=`${cloud.count.toLocaleString()} puntos · vista: puntos`; } };
+$('btn-cloud-mesh').onclick=()=>{ if(cloud.pos){ buildCloudView('mesh'); $('cloud-info').textContent=`${cloud.count.toLocaleString()} puntos · vista: malla (Delaunay)`; } };
+$('btn-cloud-clear').onclick=()=>{ gCloud.clear(); cloud={pos:null,col:null,count:0,mode:cloud.mode,obj:null,range:[0,0]}; $('cloud-info').textContent='Nube eliminada.'; };
+$('s-psize').addEventListener('input',(e)=>{ $('v-psize').textContent=(+e.target.value).toFixed(1); if(cloud.obj&&cloud.mode==='points') cloud.obj.material.size=+e.target.value; });
+$('c-zup').onchange=()=>{ if(cloud.pos){ toastRebuildZ(); } };
+function toastRebuildZ(){ $('cloud-info').textContent='Reimporta la nube para aplicar el nuevo eje de altura.'; }
+
+// ===== NIVELES (datums tipo Revit) =====
+const gLevels=new THREE.Group(); scene.add(gLevels);
+let levels=[]; let lid=1;
+function lotBBox(){ if(footprint.length){ let a=1e9,b=-1e9,c=1e9,d=-1e9; for(const p of footprint){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.z);d=Math.max(d,p.z);} return {minx:a,maxx:b,minz:c,maxz:d}; } return {minx:-25,maxx:25,minz:-25,maxz:25}; }
+function makeLabel(text,color){
+  const cv=document.createElement('canvas'); cv.width=256; cv.height=64; const ctx=cv.getContext('2d');
+  ctx.fillStyle='rgba(10,13,18,0.65)'; ctx.fillRect(0,0,256,64);
+  ctx.font='bold 30px monospace'; ctx.fillStyle=color; ctx.textBaseline='middle'; ctx.fillText(text,10,34);
+  const tex=new THREE.CanvasTexture(cv); tex.colorSpace=THREE.SRGBColorSpace;
+  const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false})); s.scale.set(22,5.5,1); return s;
+}
+function renderLevels(){
+  gLevels.clear(); const b=lotBBox(); const pad=6;
+  for(const l of levels){ const y=l.elev;
+    const pts=[new THREE.Vector3(b.minx-pad,y,b.minz-pad),new THREE.Vector3(b.maxx+pad,y,b.minz-pad),new THREE.Vector3(b.maxx+pad,y,b.maxz+pad),new THREE.Vector3(b.minx-pad,y,b.maxz+pad),new THREE.Vector3(b.minx-pad,y,b.minz-pad)];
+    gLevels.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineDashedMaterial({color:0xf4b942,dashSize:3,gapSize:2,transparent:true,opacity:0.5})).computeLineDistances());
+    const lab=makeLabel(`${l.name}  +${l.elev.toFixed(2)}`,'#f4b942'); lab.position.set(b.maxx+pad+2,y,b.minz-pad); gLevels.add(lab);
+  }
+}
+function refreshLevelUI(){
+  ['wall-base','wall-top'].forEach(id=>{ const s=$(id); const prev=s.value; s.innerHTML=levels.map(l=>`<option value="${l.id}">${l.name} (+${l.elev.toFixed(2)})</option>`).join(''); if(prev) s.value=prev; });
+  if(levels.length>=2){ $('wall-base').value=levels[0].id; $('wall-top').value=levels[1].id; }
+  const list=$('level-list');
+  if(!levels.length){ list.innerHTML='<div class="empty">Sin niveles. Agrega N0, N1…</div>'; return; }
+  list.innerHTML='';
+  levels.forEach(l=>{ const c=document.createElement('div'); c.className='mass-card';
+    c.innerHTML=`<span class="del">✕</span><div class="t">${l.name}</div><div class="m">Elevación (m):</div>`;
+    const inp=document.createElement('input'); inp.type='number'; inp.step='0.1'; inp.value=l.elev; inp.style.cssText='width:100%;background:var(--bg-0);border:1px solid var(--line);color:var(--text);padding:5px;font-family:var(--mono);font-size:11px';
+    inp.onchange=()=>{ l.elev=+inp.value||0; levels.sort((a,b)=>a.elev-b.elev); renderLevels(); buildWalls(); refreshWallUI(); refreshLevelUI(); };
+    c.appendChild(inp);
+    c.querySelector('.del').onclick=()=>{ levels=levels.filter(x=>x.id!==l.id); walls=walls.filter(w=>w.baseId!==l.id&&w.topId!==l.id); renderLevels(); buildWalls(); refreshLevelUI(); refreshWallUI(); };
+    list.appendChild(c);
+  });
+}
+function addLevel(name,elev){ levels.push({id:lid++,name:name||('N'+(levels.length)),elev:+elev||0}); levels.sort((a,b)=>a.elev-b.elev); renderLevels(); refreshLevelUI(); }
+$('btn-add-level').onclick=()=>{ addLevel($('lvl-name').value.trim(), $('lvl-elev').value); $('lvl-name').value=''; };
+
+// ===== MUROS anclados a niveles (base/top) =====
+const gWalls=new THREE.Group(); scene.add(gWalls);
+let walls=[]; let wid=1;
+function buildWalls(){
+  gWalls.clear();
+  for(const w of walls){
+    const b=levels.find(l=>l.id===w.baseId), t=levels.find(l=>l.id===w.topId); if(!b||!t) continue;
+    const base=Math.min(b.elev,t.elev), top=Math.max(b.elev,t.elev), h=top-base; if(h<=0.01) continue;
+    const dx=w.p2.x-w.p1.x, dz=w.p2.z-w.p1.z, len=Math.hypot(dx,dz); if(len<0.1) continue;
+    const geo=new THREE.BoxGeometry(len,h,w.thickness);
+    const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x9c6bff,transparent:true,opacity:0.72,roughness:0.6,metalness:0.1}));
+    mesh.position.set((w.p1.x+w.p2.x)/2, base+h/2, (w.p1.z+w.p2.z)/2);
+    mesh.rotation.y=Math.atan2(-dz,dx); mesh.userData={wallId:w.id};
+    gWalls.add(mesh);
+    const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0xc9adff,transparent:true,opacity:0.5}));
+    edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); gWalls.add(edges);
+  }
+}
+function refreshWallUI(){
+  const list=$('wall-list');
+  if(!walls.length){ list.innerHTML=''; return; }
+  list.innerHTML='';
+  walls.forEach((w,i)=>{ const b=levels.find(l=>l.id===w.baseId), t=levels.find(l=>l.id===w.topId);
+    const len=Math.hypot(w.p2.x-w.p1.x,w.p2.z-w.p1.z);
+    const c=document.createElement('div'); c.className='mass-card'; c.style.borderLeftColor='#9c6bff';
+    c.innerHTML=`<span class="del">✕</span><div class="t">Muro ${i+1}</div>
+      <div class="m">${b?b.name:'?'} → ${t?t.name:'?'} · alto <b>${b&&t?Math.abs(t.elev-b.elev).toFixed(2):'?'}</b> m</div>
+      <div class="m">Largo <b>${len.toFixed(2)}</b> m · espesor <b>${w.thickness}</b> m</div>`;
+    c.querySelector('.del').onclick=()=>{ walls=walls.filter(x=>x.id!==w.id); buildWalls(); refreshWallUI(); };
+    list.appendChild(c);
+  });
+}
+$('s-wt').addEventListener('input',(e)=>$('v-wt').textContent=(+e.target.value).toFixed(2));
+
+// ----- dibujo de muro (2 clics en planta) -----
+let mode='orbit', wallP1=null, draftMarker=null;
+const DEFAULT_WALL_HINT=$('wall-hint').textContent;
+function startDrawWall(){
+  if(levels.length<2){ $('wall-hint').textContent='Primero agrega al menos 2 niveles (base y superior).'; return; }
+  mode='drawWall'; wallP1=null; canvas.style.cursor='crosshair';
+  $('btn-draw-wall').classList.add('primary'); $('wall-hint').textContent='Clic el punto INICIAL del muro en planta…';
+}
+function cancelDraw(){ mode='orbit'; wallP1=null; if(draftMarker){gWalls.remove(draftMarker);draftMarker=null;} canvas.style.cursor=''; $('btn-draw-wall').classList.remove('primary'); $('wall-hint').textContent=DEFAULT_WALL_HINT; }
+$('btn-draw-wall').onclick=()=>{ mode==='drawWall'?cancelDraw():startDrawWall(); };
+window.addEventListener('keydown',(e)=>{ if(e.key==='Escape') cancelDraw(); });
+function groundPoint(e){
+  const r=canvas.getBoundingClientRect(); mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse,camera); const hit=ray.intersectObject(ground)[0]; return hit?{x:hit.point.x,z:hit.point.z}:null;
+}
+
+// ===== click: dibujar muro o seleccionar masa =====
+const ray=new THREE.Raycaster(), mouse=new THREE.Vector2();
+canvas.addEventListener('click',(e)=>{
+  if(mode==='drawWall'){
+    const p=groundPoint(e); if(!p) return;
+    if(!wallP1){ wallP1=p; draftMarker=new THREE.Mesh(new THREE.SphereGeometry(0.8,12,12),new THREE.MeshBasicMaterial({color:0x9c6bff})); draftMarker.position.set(p.x,0,p.z); gWalls.add(draftMarker); $('wall-hint').textContent='Clic el punto FINAL del muro…'; }
+    else { walls.push({id:wid++,baseId:+$('wall-base').value,topId:+$('wall-top').value,p1:wallP1,p2:p,thickness:+$('s-wt').value}); buildWalls(); refreshWallUI(); cancelDraw(); }
+    return;
+  }
+  const r=canvas.getBoundingClientRect(); mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1;
+  ray.setFromCamera(mouse,camera);
+  const meshes=[]; gMasses.traverse(o=>{if(o.userData&&o.userData.massId)meshes.push(o);});
+  const hit=ray.intersectObjects(meshes,false)[0];
+  if(hit){ const m=masses.find(x=>x.id===hit.object.userData.massId); if(m) selectMass(m); }
+});
+
+// ===== FLASH / DOWNLOAD =====
+function flash(msg,color){ let t=document.getElementById('flash'); if(!t){ t=document.createElement('div'); t.id='flash'; t.style.cssText='position:absolute;top:14px;left:50%;transform:translateX(-50%);background:rgba(10,13,18,.95);border:1px solid '+(color||'#9c6bff')+';color:#e6ecf5;padding:9px 16px;font-size:11px;z-index:10;border-radius:6px;max-width:80%'; document.getElementById('center').appendChild(t);} t.style.borderColor=color||'#9c6bff'; t.textContent=msg; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3600); }
+function download(text,name,mime){ const b=new Blob([text],{type:mime||'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+
+// ===== GUARDAR / RESTAURAR ESTUDIO =====
+const STUDIES_KEY='cali_massing_studies';
+function studyKey(){ return (lot && (lot.npn||lot.numepred||lot.direpred)) || 'sin_predio'; }
+function collectStudy(){
+  return { predio: lot||null, savedAt:new Date().toISOString(),
+    resumen:{ area_lote:lotArea, icb, ica, masas:masses.length, area_construida:Math.round(totalBuilt()), indice:+(lotArea?totalBuilt()/lotArea:0).toFixed(3), altura:+topOfStack().toFixed(2) },
+    levels: levels.map(l=>({id:l.id,name:l.name,elev:l.elev})),
+    walls: walls.map(w=>({id:w.id,baseId:w.baseId,topId:w.topId,p1:w.p1,p2:w.p2,thickness:w.thickness})),
+    masses: masses.map(m=>({id:m.id,floors:m.floors,floorH:m.floorH,offset:m.offset,baseZ:m.baseZ,color:m.color})) };
+}
+function saveStudy(){
+  if(!lot){ flash('Abre un predio desde el visor para guardar el estudio.','#ff5252'); return; }
+  let all={}; try{ all=JSON.parse(localStorage.getItem(STUDIES_KEY)||'{}'); }catch(e){}
+  all[studyKey()]=collectStudy();
+  try{ localStorage.setItem(STUDIES_KEY, JSON.stringify(all)); flash('Estudio guardado ✓  Disponible en el dashboard del visor.','#6bd96b'); }
+  catch(e){ flash('No se pudo guardar: '+e.message,'#ff5252'); }
+}
+function restoreStudy(st){
+  levels=[]; lid=1; for(const l of st.levels){ levels.push({id:l.id,name:l.name,elev:l.elev}); lid=Math.max(lid,l.id+1); }
+  levels.sort((a,b)=>a.elev-b.elev); renderLevels(); refreshLevelUI();
+  walls=[]; wid=1; for(const w of (st.walls||[])){ walls.push({...w}); wid=Math.max(wid,w.id+1); } buildWalls(); refreshWallUI();
+  masses=[]; uid=1; sel=null; for(const m of (st.masses||[])){ const mm={...m}; masses.push(mm); uid=Math.max(uid,m.id+1); buildMass(mm); }
+  sel=masses[masses.length-1]||null; rebuildAll(); refresh();
+}
+
+// ===== LÁMINA (ISO + CENITAL + FRONTAL) =====
+function modelBounds(){ const box=new THREE.Box3(); if(gMasses.children.length) box.expandByObject(gMasses); if(gWalls.children.length) box.expandByObject(gWalls); if(gLot.children.length) box.expandByObject(gLot); if(box.isEmpty()) box.set(new THREE.Vector3(-20,0,-20),new THREE.Vector3(20,20,20)); return box; }
+function captureView(setup){
+  const oldPos=camera.position.clone(), oldTgt=controls.target.clone();
+  setup(); camera.updateProjectionMatrix(); renderer.render(scene,camera);
+  const url=canvas.toDataURL('image/png');
+  camera.position.copy(oldPos); controls.target.copy(oldTgt); camera.lookAt(oldTgt); camera.updateProjectionMatrix();
+  return url;
+}
+function captureViews(){
+  const box=modelBounds(); const c=box.getCenter(new THREE.Vector3()); const size=box.getSize(new THREE.Vector3());
+  const rad=Math.max(size.x,size.z,20), H=Math.max(size.y,10);
+  const iso=captureView(()=>{ const d=rad*1.6+H*0.6; camera.position.set(c.x+d,c.y+d*0.85+H*0.4,c.z+d); controls.target.copy(c); camera.lookAt(c); });
+  const top=captureView(()=>{ camera.position.set(c.x,c.y+rad*3+H+50,c.z+0.001); controls.target.copy(c); camera.lookAt(c); });
+  const frontC=new THREE.Vector3(c.x,c.y+H*0.45,c.z);
+  const front=captureView(()=>{ camera.position.set(frontC.x,frontC.y,frontC.z+rad*2.2+H); controls.target.copy(frontC); camera.lookAt(frontC); });
+  return {iso,top,front};
+}
+function exportSheet(){
+  const imgs=captureViews(); const p=lot||{};
+  const built=Math.round(totalBuilt()); const idx=(lotArea?built/lotArea:0).toFixed(2); const maxp=Math.round(maxBuild);
+  const rows=masses.map((m,i)=>`<tr><td>${i+1}</td><td>${m.floors}</td><td>${m.floorH.toFixed(2)}</td><td>${(m.floors*m.floorH).toFixed(1)}</td><td>${m.offset}</td><td>${Math.round(m.fArea)}</td><td>${Math.round(m.fArea*m.floors)}</td></tr>`).join('') || '<tr><td colspan=7 style="text-align:center;color:#888">Sin masas</td></tr>';
+  const html=`<!doctype html><html lang=es><head><meta charset=utf-8><title>Lámina · ${p.npn||'Proyecto'}</title>
+  <style>
+   @page{size:A3 landscape;margin:8mm}
+   *{box-sizing:border-box;margin:0;font-family:'Segoe UI',Arial,sans-serif}
+   body{background:#e9edf2;color:#1a2230;padding:14px}
+   .sheet{background:#fff;border:2px solid #1a2230;width:100%;max-width:1600px;margin:auto;display:grid;grid-template-rows:auto 1fr auto}
+   .head{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1a2230;padding:12px 16px}
+   .head .l h1{font-size:20px;letter-spacing:1px}.head .l .s{font-size:12px;color:#555}
+   .head .r{text-align:right;font-size:11px;color:#333}
+   .head .brand{font-weight:800;color:#c8901a;font-size:22px}
+   .grid{display:grid;grid-template-columns:2fr 1fr;gap:0}
+   .views{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:0;border-right:2px solid #1a2230}
+   .view{border:1px solid #cdd4de;position:relative;min-height:230px;display:flex;align-items:center;justify-content:center;background:#0a0d12}
+   .view img{width:100%;height:100%;object-fit:contain}
+   .view .lbl{position:absolute;top:6px;left:8px;background:#1a2230;color:#f4b942;font-size:11px;letter-spacing:1px;padding:3px 8px}
+   .info{padding:12px 16px;font-size:12px}
+   .info h2{font-size:12px;letter-spacing:1px;color:#c8901a;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:8px;text-transform:uppercase}
+   .kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin-bottom:12px}
+   .kv .k{color:#666}.kv .v{font-weight:600;text-align:right}
+   table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}
+   th,td{border:1px solid #cdd4de;padding:3px 5px;text-align:center}th{background:#1a2230;color:#fff;font-weight:600}
+   .foot{border-top:2px solid #1a2230;display:flex;justify-content:space-between;padding:8px 16px;font-size:10px;color:#555}
+   .noprint{position:fixed;top:10px;right:10px}
+   .noprint button{background:#f4b942;border:0;padding:10px 16px;font-weight:700;cursor:pointer;border-radius:6px}
+   @media print{.noprint{display:none}body{background:#fff;padding:0}}
+  </style></head><body>
+  <div class="noprint"><button onclick="window.print()">Imprimir / Guardar PDF</button></div>
+  <div class="sheet">
+   <div class="head">
+     <div class="l"><h1>${(p.direpred||'ESTUDIO URBANÍSTICO').toUpperCase()}</h1><div class="s">${p.nom_barrio||''}${p.comuna?' · Comuna '+p.comuna:''} · ${p.city||'Cali'}</div></div>
+     <div class="r"><div class="brand">LifeCity</div><div>NPN ${p.npn||'—'}</div><div>${new Date().toLocaleString('es-CO')}</div></div>
+   </div>
+   <div class="grid">
+     <div class="views">
+       <div class="view"><span class="lbl">ISOMÉTRICA</span><img src="${imgs.iso}"></div>
+       <div class="view"><span class="lbl">CENITAL (PLANTA)</span><img src="${imgs.top}"></div>
+       <div class="view"><span class="lbl">FRONTAL (ALZADO)</span><img src="${imgs.front}"></div>
+       <div class="view" style="background:#fff;color:#1a2230;padding:10px">
+         <div style="align-self:flex-start;width:100%">
+           <div class="lbl" style="position:static;display:inline-block;margin-bottom:8px">CUADRO DE MASAS</div>
+           <table><tr><th>#</th><th>Pisos</th><th>h piso</th><th>Alt (m)</th><th>Retiro</th><th>Huella m²</th><th>Constr. m²</th></tr>${rows}</table>
+         </div>
+       </div>
+     </div>
+     <div class="info">
+       <h2>Predio</h2>
+       <div class="kv">
+         <span class="k">Dirección</span><span class="v">${p.direpred||'—'}</span>
+         <span class="k">Barrio</span><span class="v">${p.nom_barrio||'—'}</span>
+         <span class="k">Comuna</span><span class="v">${p.comuna||'—'}</span>
+         <span class="k">Área lote</span><span class="v">${lotArea?lotArea.toLocaleString():'—'} m²</span>
+       </div>
+       <h2>Normativa POT</h2>
+       <div class="kv">
+         <span class="k">Índice constr. básico (ICB)</span><span class="v">${icb!=null?icb.toFixed(2):'—'}</span>
+         <span class="k">Índice constr. adicional (ICA)</span><span class="v">${ica!=null?ica.toFixed(2):'—'}</span>
+         <span class="k">Edificabilidad máx.</span><span class="v">${maxp?maxp.toLocaleString():'—'} m²</span>
+       </div>
+       <h2>Propuesta</h2>
+       <div class="kv">
+         <span class="k">N° de masas</span><span class="v">${masses.length}</span>
+         <span class="k">Altura máxima</span><span class="v">${topOfStack().toFixed(1)} m</span>
+         <span class="k">Área construida</span><span class="v">${built.toLocaleString()} m²</span>
+         <span class="k">Índice logrado</span><span class="v">${idx}</span>
+         <span class="k">vs. máximo POT</span><span class="v" style="color:${maxp&&built>maxp?'#c00':'#2a7'}">${maxp?(built>maxp?'+'+(built-maxp).toLocaleString()+' m² (excede)':(maxp-built).toLocaleString()+' m² disp.'):'—'}</span>
+       </div>
+       <h2>Niveles</h2>
+       <div class="kv">${levels.map(l=>`<span class="k">${l.name}</span><span class="v">+${l.elev.toFixed(2)} m</span>`).join('')}</div>
+     </div>
+   </div>
+   <div class="foot"><span>LifeCity · Plataforma Urbana AEC · lifecity.com.co</span><span>${p.city?'Catastro y normativa de '+p.city:'Catastro IDESC Cali · POT 2014'} · Lámina generada automáticamente</span></div>
+  </div></body></html>`;
+  const w=window.open('','_blank'); if(!w){ flash('Permite ventanas emergentes para ver la lámina.','#ff5252'); return; }
+  w.document.write(html); w.document.close();
+}
+
+// ===== EXPORTAR IFC (IfcWall + IfcBuildingStorey) =====
+function ifcGuid(){ const c='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$'; let s=''; for(let i=0;i<22;i++) s+=c[Math.floor(Math.random()*64)]; return s; }
+function buildIFCString(){
+  const lines=[]; let id=0;
+  const add=(def)=>{ const r='#'+(++id); lines.push(r+'='+def+';'); return r; };
+  const f=(n)=>{ let s=(+n).toFixed(6).replace(/0+$/,'').replace(/\.$/,'.'); if(!/[.eE]/.test(s)) s+='.'; return s; };
+  const CP=(x,y,z)=>add(`IFCCARTESIANPOINT((${f(x)},${f(y)},${f(z)}))`);
+  const CP2=(x,y)=>add(`IFCCARTESIANPOINT((${f(x)},${f(y)}))`);
+  const DIR=(x,y,z)=>add(`IFCDIRECTION((${f(x)},${f(y)},${f(z)}))`);
+  const AX3=(p,z,x)=>add(`IFCAXIS2PLACEMENT3D(${p},${z||'$'},${x||'$'})`);
+  const person=add(`IFCPERSON($,$,'',$,$,$,$,$)`);
+  const org=add(`IFCORGANIZATION($,'LifeCity',$,$,$)`);
+  const pao=add(`IFCPERSONANDORGANIZATION(${person},${org},$)`);
+  const app=add(`IFCAPPLICATION(${org},'0.2','LifeCity Massing','LC-MASS')`);
+  const owner=add(`IFCOWNERHISTORY(${pao},${app},$,.ADDED.,$,$,$,${Math.floor(Date.now()/1000)})`);
+  const lenU=add(`IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.)`);
+  const areaU=add(`IFCSIUNIT(*,.AREAUNIT.,$,.SQUARE_METRE.)`);
+  const volU=add(`IFCSIUNIT(*,.VOLUMEUNIT.,$,.CUBIC_METRE.)`);
+  const angU=add(`IFCSIUNIT(*,.PLANEANGLEUNIT.,$,.RADIAN.)`);
+  const units=add(`IFCUNITASSIGNMENT((${lenU},${areaU},${volU},${angU}))`);
+  const wcs=AX3(CP(0,0,0));
+  const ctx=add(`IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.0E-5,${wcs},$)`);
+  const sub=add(`IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Body','Model',*,*,*,*,${ctx},$,.MODEL_VIEW.,$)`);
+  const project=add(`IFCPROJECT('${ifcGuid()}',${owner},'Estudio de Masas',$,$,$,$,(${ctx}),${units})`);
+  const sitePl=add(`IFCLOCALPLACEMENT($,${AX3(CP(0,0,0))})`);
+  const site=add(`IFCSITE('${ifcGuid()}',${owner},'Sitio',$,$,${sitePl},$,$,.ELEMENT.,$,$,$,$,$)`);
+  const bldgPl=add(`IFCLOCALPLACEMENT(${sitePl},${AX3(CP(0,0,0))})`);
+  const bname=((lot&&lot.direpred)||'Edificio').replace(/'/g,"''");
+  const building=add(`IFCBUILDING('${ifcGuid()}',${owner},'${bname}',$,$,${bldgPl},$,$,.ELEMENT.,$,$,$)`);
+  const storeyMap={};
+  const storeyElev={};
+  const storeyIds=levels.map(l=>{ const pl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(0,0,l.elev))})`);
+    const st=add(`IFCBUILDINGSTOREY('${ifcGuid()}',${owner},'${l.name.replace(/'/g,"''")}',$,$,${pl},$,$,.ELEMENT.,${f(l.elev)})`); storeyMap[l.id]=st; storeyElev[st]=l.elev; return st; });
+  // Sin niveles definidos: crea un nivel base para poder contener masas/muros
+  if(!storeyIds.length){
+    const pl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(0,0,0))})`);
+    const st=add(`IFCBUILDINGSTOREY('${ifcGuid()}',${owner},'N0',$,$,${pl},$,$,.ELEMENT.,0.)`);
+    storeyIds.push(st); storeyElev[st]=0;
+  }
+  add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${project},(${site}))`);
+  add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${site},(${building}))`);
+  add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${building},(${storeyIds.join(',')}))`);
+  const byStorey={};
+  // Nivel cuya elevación queda justo debajo (o igual) de la cota dada
+  function storeyAt(elev){
+    let best=storeyIds[0], bestE=-Infinity;
+    for(const st of storeyIds){ const e=storeyElev[st]; if(e<=elev+0.01 && e>bestE){ best=st; bestE=e; } }
+    return best;
+  }
+  // ---- MASAS: extrusión de la huella real (perfil arbitrario) como IfcBuildingElementProxy ----
+  masses.forEach((m,i)=>{
+    const pts=offsetPolygon(footprint,m.offset); if(!pts || pts.length<3) return;
+    const h=m.floors*m.floorH; if(h<=0.001) return;
+    // three.js: X este, Z sur → IFC: X este, Y norte = -Z
+    const cps=pts.map(p=>CP2(p.x,-p.z)); cps.push(cps[0]);
+    const poly=add(`IFCPOLYLINE((${cps.join(',')}))`);
+    const prof=add(`IFCARBITRARYCLOSEDPROFILEDEF(.AREA.,$,${poly})`);
+    const solid=add(`IFCEXTRUDEDAREASOLID(${prof},${AX3(CP(0,0,0))},${DIR(0,0,1)},${f(h)})`);
+    const shape=add(`IFCSHAPEREPRESENTATION(${sub},'Body','SweptSolid',(${solid}))`);
+    const pds=add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${shape}))`);
+    const mpl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(0,0,m.baseZ))})`);
+    const proxy=add(`IFCBUILDINGELEMENTPROXY('${ifcGuid()}',${owner},'Masa ${i+1} · ${m.floors} pisos x ${(+m.floorH).toFixed(2)} m','Estudio de masas LifeCity','MASA',${mpl},${pds},$,$)`);
+    const st=storeyAt(m.baseZ);
+    (byStorey[st]=byStorey[st]||[]).push(proxy);
+  });
+  walls.forEach((w,i)=>{
+    const b=levels.find(l=>l.id===w.baseId), t=levels.find(l=>l.id===w.topId); if(!b||!t) return;
+    const base=Math.min(b.elev,t.elev), top=Math.max(b.elev,t.elev), h=top-base; if(h<=0.001) return;
+    const dx=w.p2.x-w.p1.x, dz=w.p2.z-w.p1.z, len=Math.hypot(dx,dz); if(len<0.05) return;
+    const midx=(w.p1.x+w.p2.x)/2, midz=(w.p1.z+w.p2.z)/2, ang=Math.atan2(-dz,dx);
+    const prof=add(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${add(`IFCAXIS2PLACEMENT2D(${CP2(0,0)},$)`)},${f(len)},${f(w.thickness)})`);
+    const solid=add(`IFCEXTRUDEDAREASOLID(${prof},${AX3(CP(0,0,0))},${DIR(0,0,1)},${f(h)})`);
+    const shape=add(`IFCSHAPEREPRESENTATION(${sub},'Body','SweptSolid',(${solid}))`);
+    const pds=add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${shape}))`);
+    const wpl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(midx,-midz,base),DIR(0,0,1),DIR(Math.cos(ang),Math.sin(ang),0))})`);
+    const wall=add(`IFCWALL('${ifcGuid()}',${owner},'Muro ${i+1}',$,$,${wpl},${pds},$)`);
+    (byStorey[storeyMap[b.id]]=byStorey[storeyMap[b.id]]||[]).push(wall);
+  });
+  for(const st in byStorey) add(`IFCRELCONTAINEDINSPATIALSTRUCTURE('${ifcGuid()}',${owner},$,$,(${byStorey[st].join(',')}),${st})`);
+  const header=`ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');\nFILE_NAME('${(lot&&lot.npn)||'masas'}.ifc','${new Date().toISOString()}',(''),(''),'LifeCity Massing','LifeCity','');\nFILE_SCHEMA(('IFC2X3'));\nENDSEC;\nDATA;\n`;
+  return header+lines.join('\n')+'\nENDSEC;\nEND-ISO-10303-21;\n';
+}
+function exportIFC(){
+  if(!masses.length && !levels.length && !walls.length){ flash('Crea al menos una masa (o niveles/muros) para exportar IFC.','#ff5252'); return; }
+  const ifc=buildIFCString();
+  download(ifc,((lot&&lot.npn)||'masas')+'.ifc','application/x-step');
+  flash(`IFC exportado: ${masses.length} masa(s), ${walls.length} muro(s), ${levels.length} nivel(es).`,'#6bd96b');
+}
+window.__mass={ ifc:buildIFCString, capture:captureViews };
+
+// ===== header =====
+function fillHead(){
+  if(!lot){ return; }
+  $('predio-head').innerHTML=`<div class="npn">${lot.npn||'—'}</div>
+    <div class="kv"><b>${lot.direpred||'—'}</b></div>
+    <div class="kv">${lot.nom_barrio||'—'} · Comuna ${lot.comuna||'—'}</div>
+    <div class="kv">Área lote <b>${lotArea?lotArea.toLocaleString():'—'} m²</b></div>`;
+  $('hud-npn').textContent=lot.numepred||lot.npn||'—';
+  $('hud-area').textContent=(lotArea?lotArea.toLocaleString():'—')+' m²';
+  if(icb==null && lot.pisosMax){
+    $('m-icb').previousElementSibling.textContent='Pisos máx';
+    $('m-icb').textContent=lot.pisosMax;
+    $('m-ica').previousElementSibling.textContent='Zoning / Trat.';
+    $('m-ica').textContent=lot.zoning?String(lot.zoning).slice(0,10):'—';
+  } else {
+    $('m-icb').textContent=icb!=null?icb.toFixed(2):'—';
+    $('m-ica').textContent=ica!=null?ica.toFixed(2):'—';
+  }
+  const hudCity=document.querySelector('.hud-br div');
+  if(hudCity && lot.city) hudCity.textContent=String(lot.city).toUpperCase();
+}
+
+// ===== init =====
+function resize(){const w=canvas.clientWidth,h=canvas.clientHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
+window.addEventListener('resize',resize);
+function animate(){requestAnimationFrame(animate);controls.update();renderer.render(scene,camera);}
+// botones guardar/exportar
+$('btn-save-study').onclick=saveStudy;
+$('btn-sheet').onclick=exportSheet;
+$('btn-ifc').onclick=exportIFC;
+if(window.LifeCityAuth){ $('btn-logout').onclick=()=>window.LifeCityAuth.logout(); }
+// restaurar estudio si el handoff lo trae; si no, niveles por defecto
+if(lot && lot.study && (lot.study.levels||lot.study.masses)){ restoreStudy(lot.study); flash('Estudio restaurado desde el dashboard.','#4dd0e1'); }
+else { addLevel('N0', 0); addLevel('N1', 3); refreshWallUI(); }
+resize(); syncLabels(); fillHead(); drawLot(); refresh(); animate();
+if(footprint.length>=3){ const iso=Math.max(120, Math.sqrt(lotArea)*3); camera.position.set(iso,iso,iso); controls.target.set(0,0,0); }
+</script>
+</body>
+</html>

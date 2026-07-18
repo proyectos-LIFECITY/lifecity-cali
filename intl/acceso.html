@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LifeCity · Acceso directo</title>
+<style>
+  :root{--bg-0:#0a0d12;--bg-1:#11161e;--line:#2a3548;--text:#e6ecf5;--dim:#8b97aa;--accent:#f4b942;--accent-3:#4dd0e1;--mono:'JetBrains Mono','SF Mono','Menlo',monospace;--display:'Space Grotesk','Inter',sans-serif}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:radial-gradient(1200px 600px at 50% -10%,#16202e 0%,var(--bg-0) 60%);color:var(--text);font-family:var(--mono);display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px}
+  .card{background:linear-gradient(180deg,var(--bg-1),var(--bg-0));border:1px solid var(--line);border-radius:14px;max-width:520px;width:100%;padding:34px 30px;text-align:center}
+  .brand{font-family:var(--display);font-size:22px;font-weight:700;letter-spacing:.5px}
+  .brand .tag{display:block;font-family:var(--mono);font-size:9px;letter-spacing:2px;color:var(--accent);text-transform:uppercase;margin-top:6px}
+  .msg{color:var(--dim);font-size:12px;line-height:1.6;margin:16px 0 22px}
+  .msg .go{color:var(--accent-3)}
+  .cities{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+  a.city{display:flex;align-items:center;gap:8px;padding:11px 12px;background:#1a2230;border:1px solid var(--line);border-radius:8px;color:var(--text);text-decoration:none;font-size:12px;transition:.15s}
+  a.city:hover{border-color:var(--accent);background:#232c3d}
+  a.city .fl{font-size:15px}
+  .primary{display:block;width:100%;padding:13px;margin-bottom:14px;background:var(--accent);color:#1a1305;border:0;border-radius:8px;font-family:var(--mono);font-weight:700;font-size:13px;cursor:pointer;text-decoration:none;transition:.15s}
+  .primary:hover{background:#ffc857}
+  .foot{font-size:10px;color:var(--dim);margin-top:14px}
+  .foot a{color:var(--accent)}
+  .spin{display:inline-block;animation:blink .8s infinite}
+  @keyframes blink{50%{opacity:.3}}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">LifeCity<span class="tag">Plataforma Urbana AEC · Acceso invitado</span></div>
+    <div class="msg"><span class="spin">▸</span> Entrando como <b>invitado</b> — sin necesidad de iniciar sesión.<br>Si no redirige solo, elige una ciudad:</div>
+
+    <a class="primary" id="go" href="cali_aec_viewer.html">Entrar al visor ahora →</a>
+
+    <div class="cities">
+      <a class="city" href="cali_aec_viewer.html"><span class="fl">🇨🇴</span> Cali</a>
+      <a class="city" href="city_viewer.html?city=bogota"><span class="fl">🇨🇴</span> Bogotá</a>
+      <a class="city" href="city_viewer.html?city=medellin"><span class="fl">🇨🇴</span> Medellín</a>
+      <a class="city" href="city_viewer.html?city=cartagena"><span class="fl">🇨🇴</span> Cartagena</a>
+      <a class="city" href="city_viewer.html?city=miamilakes"><span class="fl">🇺🇸</span> Miami Lakes</a>
+      <a class="city" href="city_viewer.html?city=bocaraton"><span class="fl">🇺🇸</span> Boca Ratón</a>
+      <a class="city" href="city_viewer.html?city=delraybeach"><span class="fl">🇺🇸</span> Delray Beach</a>
+      <a class="city" href="city_viewer.html?city=quito"><span class="fl">🇪🇨</span> Quito</a>
+      <a class="city" href="city_viewer.html?city=buenosaires"><span class="fl">🇦🇷</span> Buenos Aires</a>
+      <a class="city" href="city_viewer.html?city=madrid"><span class="fl">🇪🇸</span> Madrid</a>
+    </div>
+
+    <div class="foot">¿Prefieres tu cuenta? <a href="login.html">Iniciar sesión</a></div>
+  </div>
+
+<script>
+(function(){
+  var SESSION_KEY = 'lifecity_session';
+  // Sesión de invitado válida 30 días (misma forma que la del login → auth.js la acepta).
+  var exp = Date.now() + 30*864e5;
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify({ email:'invitado@lifecity.com.co', name:'Invitado', guest:true, exp:exp })); } catch(e){}
+
+  // Destino: ?to=<pagina local>. Se restringe a páginas del propio sitio (evita redirección abierta).
+  var ALLOWED = {
+    'cali_aec_viewer.html': 'cali_aec_viewer.html',
+    'city_viewer.html': 'city_viewer.html',
+    'masas.html': 'masas.html'
+  };
+  var params = new URLSearchParams(location.search);
+  var to = params.get('to');
+  var dest = 'cali_aec_viewer.html';
+  if (to) {
+    var base = to.split('?')[0];
+    if (ALLOWED[base]) dest = ALLOWED[base] + (to.indexOf('?') > -1 ? to.slice(to.indexOf('?')) : '');
+  }
+  // Prepara los enlaces por si el usuario prefiere elegir ciudad manualmente.
+  document.getElementById('go').setAttribute('href', dest);
+  // Autoentrada tras un instante (deja ver el splash).
+  setTimeout(function(){ location.replace(dest); }, 900);
+})();
+</script>
+</body>
+</html>

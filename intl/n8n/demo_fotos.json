@@ -1,0 +1,5 @@
+[
+  { "id": "demo1", "lat": 3.457664, "lon": -76.516363, "url": "https://picsum.photos/seed/cali1/400", "caption": "Predio Jorge Isaacs - fachada" },
+  { "id": "demo2", "lat": 3.4516, "lon": -76.5320, "url": "https://picsum.photos/seed/cali2/400", "caption": "Centro - Plaza Caicedo" },
+  { "id": "demo3", "lat": 3.4530, "lon": -76.5380, "url": "https://picsum.photos/seed/cali3/400", "caption": "El Peñón" }
+]
