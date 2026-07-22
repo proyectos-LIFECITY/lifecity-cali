@@ -7,9 +7,7 @@ echo   Endpoint:  http://localhost:8000/suggest
 echo   (deja esta ventana abierta mientras lo usas)
 echo ==================================================
 echo.
-echo Para Nemotron REAL, antes de correr:
-echo   pip install -r requirements.txt
-echo   set NVIDIA_API_KEY=nvapi-xxxx
-echo   set NEMOTRON_MODEL=id-exacto-del-modelo
+REM Carga tus claves si existe keys.bat (copia keys.example.bat -> keys.bat)
+if exist "%~dp0keys.bat" ( call "%~dp0keys.bat" & echo Claves cargadas desde keys.bat. ) else ( echo (Sin keys.bat: la IA responde con fallback. Para Nemotron real, copia keys.example.bat a keys.bat.) )
 echo.
 python -m uvicorn server:app --host 127.0.0.1 --port 8000

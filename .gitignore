@@ -16,3 +16,6 @@ scratchpad/
 # Datos del protocolo de aprendizaje (no publicar)
 ai/data/
 ai/__pycache__/
+
+# Claves locales (no publicar)
+ai/keys.bat
