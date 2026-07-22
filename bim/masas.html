@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="auth.js"></script>
+<script src="learn.js"></script>
+<title>LifeCity BIM · Editor 5D (Masas · Nube→BIM · MEP · Presupuesto · Rentas)</title>
+<!-- SheetJS para importar base de datos APU desde Excel (repo 1) -->
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg-0:#0a0d12;--bg-1:#11161e;--bg-2:#1a2230;--line:#2a3548;--text:#e6ecf5;--text-dim:#8b97aa;
+    --accent:#f4b942;--accent-2:#ff5252;--accent-3:#4dd0e1;--ok:#6bd96b;--viol:#9c6bff;
+    --new:#4d9fff;--exist:#8b97aa;--elec:#ffd166;--hidr:#4dd0e1;--sani:#c98b5b;
+    --mono:'JetBrains Mono','SF Mono','Menlo',monospace;--display:'Space Grotesk','Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{width:100%;height:100%;overflow:hidden;background:var(--bg-0);color:var(--text);font-family:var(--mono);font-size:12px}
+  #app{display:grid;grid-template-columns:312px 1fr 336px;grid-template-rows:44px 1fr;grid-template-areas:"top top top" "left center right";height:100vh}
+  #topbar{grid-area:top;display:flex;align-items:center;gap:8px;padding:0 12px;background:linear-gradient(90deg,var(--bg-1),var(--bg-0));border-bottom:1px solid var(--line)}
+  #topbar .brand{font-family:var(--display);font-weight:700;font-size:14px;letter-spacing:.5px;margin-right:6px}
+  #topbar .brand span{color:var(--viol);font-size:9px;letter-spacing:2px;display:block;line-height:1}
+  .tabbtn{padding:7px 12px;background:var(--bg-2);border:1px solid var(--line);color:var(--text-dim);cursor:pointer;font-family:var(--mono);font-size:11px;display:flex;align-items:center;gap:6px}
+  .tabbtn.on{background:var(--accent);color:#1a1305;border-color:var(--accent);font-weight:600}
+  .tabbtn .ic{font-weight:700}
+  #topbar .sep{width:1px;height:24px;background:var(--line);margin:0 4px}
+  #topbar .grow{flex:1}
+  #topbar select,#topbar .mini{background:var(--bg-2);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:11px;padding:6px 8px;cursor:pointer}
+  aside{background:linear-gradient(180deg,var(--bg-1),var(--bg-0));overflow-y:auto;padding:14px 14px 40px;display:flex;flex-direction:column;gap:14px}
+  #left{grid-area:left;border-right:1px solid var(--line)} #right{grid-area:right;border-left:1px solid var(--line)}
+  #center{grid-area:center;position:relative;background:#000;overflow:hidden}
+  #canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+  .section{display:flex;flex-direction:column;gap:8px}
+  .section h2{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim);display:flex;justify-content:space-between;align-items:center;cursor:pointer;user-select:none}
+  .section h2 .dot{width:6px;height:6px;border-radius:50%;background:var(--accent)}
+  .section.collapsed .body{display:none}
+  .btn{width:100%;padding:9px 12px;background:var(--bg-2);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:8px;transition:all .15s}
+  .btn:hover{background:#232c3d;border-color:var(--accent)}
+  .btn .ic{color:var(--accent);font-weight:700}
+  .btn.primary{background:var(--accent);color:#1a1305;border-color:var(--accent);font-weight:600}.btn.primary .ic{color:#1a1305}
+  .btn.viol{border-color:var(--viol)} .btn.viol .ic{color:var(--viol)}
+  .btn.ok{border-color:var(--ok)} .btn.ok .ic{color:var(--ok)}
+  .btn.danger:hover{border-color:var(--accent-2)}
+  .btn.sm{padding:7px 9px;font-size:10px}
+  .btn.on{background:var(--accent);color:#1a1305;border-color:var(--accent);font-weight:600}.btn.on .ic{color:#1a1305}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+  .ctl{display:flex;flex-direction:column;gap:4px}
+  .ctl label{font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase;display:flex;justify-content:space-between}
+  .ctl label .v{color:var(--accent)}
+  .ctl input[type=range]{width:100%;accent-color:var(--accent)}
+  .ctl input,.ctl select{background:var(--bg-0);border:1px solid var(--line);color:var(--text);padding:6px;font-family:var(--mono);font-size:11px;width:100%}
+  .toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:11px}.toggle input{accent-color:var(--accent)}
+  .hint{font-size:10px;color:var(--text-dim);line-height:1.5}
+  .hud{position:absolute;pointer-events:none;font-size:10px;color:var(--text-dim);letter-spacing:1px;z-index:4}
+  .hud-tl{top:12px;left:12px}.hud-br{bottom:12px;right:12px;text-align:right}.hud .v{color:var(--accent)}
+  .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .stat{background:var(--bg-2);border:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:2px}
+  .stat .lbl{font-size:8px;color:var(--text-dim);letter-spacing:1.5px;text-transform:uppercase}
+  .stat .val{font-family:var(--display);font-size:16px;font-weight:600;color:var(--accent)}
+  .stat .val.viol{color:var(--viol)}.stat .val.ok{color:var(--ok)}.stat .val.new{color:var(--new)}
+  .meter{background:var(--bg-2);border:1px solid var(--line);padding:10px;display:flex;flex-direction:column;gap:6px}
+  .meter .bar{height:10px;background:var(--bg-0);border:1px solid var(--line);position:relative;overflow:hidden}
+  .meter .bar span{position:absolute;left:0;top:0;bottom:0;background:var(--ok);transition:width .2s}
+  .meter .bar span.over{background:var(--accent-2)}
+  .meter .lbls{display:flex;justify-content:space-between;font-size:10px}
+  .card{background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--viol);padding:9px;display:flex;flex-direction:column;gap:4px;cursor:pointer;position:relative}
+  .card.sel{background:#2a3548;border-color:var(--accent)}
+  .card .t{font-family:var(--display);font-weight:600;font-size:12px}
+  .card .m{font-size:10px;color:var(--text-dim)}.card .m b{color:var(--text)}
+  .card .del{position:absolute;top:7px;right:8px;color:var(--text-dim);cursor:pointer}.card .del:hover{color:var(--accent-2)}
+  .card .badge{position:absolute;top:7px;right:26px;font-size:8px;padding:1px 5px;border-radius:8px;letter-spacing:.5px}
+  .badge.new{background:rgba(77,159,255,.2);color:var(--new)}.badge.exist{background:rgba(139,151,170,.2);color:var(--exist)}
+  .empty{color:var(--text-dim);font-size:11px;padding:10px;text-align:center;font-style:italic}
+  .predio-head{background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--accent-3);padding:10px;display:flex;flex-direction:column;gap:4px}
+  .predio-head .npn{color:var(--accent-3);font-size:11px;word-break:break-all}
+  .predio-head .kv{font-size:10px;color:var(--text-dim)}.predio-head .kv b{color:var(--text)}
+  ::-webkit-scrollbar{width:7px;height:7px}::-webkit-scrollbar-track{background:var(--bg-0)}::-webkit-scrollbar-thumb{background:var(--line)}
+  /* PLANTA (2D) */
+  #plan-host{position:absolute;inset:0;background:#0d1117;display:none;z-index:3}
+  #plan-host.on{display:block}
+  #plan-svg{width:100%;height:100%;display:block;cursor:crosshair}
+  #plan-toolbar{position:absolute;top:12px;left:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:60%;z-index:4}
+  .ptool{padding:6px 10px;background:rgba(17,22,30,.92);border:1px solid var(--line);color:var(--text-dim);cursor:pointer;font-size:10px}
+  .ptool.on{background:var(--accent);color:#1a1305;border-color:var(--accent);font-weight:600}
+  .catwrap{display:none}
+  /* MODALES */
+  .modal{position:fixed;inset:0;background:rgba(5,8,13,.82);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:900}
+  .modal.on{display:flex}
+  .modal .box{background:var(--bg-1);border:1px solid var(--line);width:min(1080px,94vw);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 20px 60px rgba(0,0,0,.6)}
+  .modal .box.sm{width:min(560px,94vw)}
+  .modal .mh{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)}
+  .modal .mh h3{font-family:var(--display);font-size:15px;font-weight:600}
+  .modal .mh .sub{font-size:10px;color:var(--text-dim)}
+  .modal .mb{padding:16px 18px;overflow:auto}
+  .modal .x{background:var(--bg-2);border:1px solid var(--line);color:var(--text-dim);cursor:pointer;padding:5px 9px;font-size:13px}
+  table.tbl{width:100%;border-collapse:collapse;font-size:11px}
+  table.tbl th{background:var(--bg-2);color:var(--text-dim);text-align:left;padding:7px 9px;position:sticky;top:0;font-size:9px;letter-spacing:1px;text-transform:uppercase}
+  table.tbl td{padding:7px 9px;border-bottom:1px solid var(--line)}
+  table.tbl tr:hover td{background:var(--bg-2)}
+  table.tbl tr.click{cursor:pointer}
+  .pill{display:inline-block;padding:2px 8px;border-radius:9px;font-size:9px;letter-spacing:.5px}
+  .pill.rent{background:rgba(255,82,82,.18);color:#ff8f8f}
+  .pill.free{background:rgba(107,217,107,.18);color:var(--ok)}
+  input.inp,select.inp,textarea.inp{background:var(--bg-0);border:1px solid var(--line);color:var(--text);padding:7px;font-family:var(--mono);font-size:11px;width:100%}
+  .flash{position:absolute;top:56px;left:50%;transform:translateX(-50%);background:rgba(10,13,18,.95);border:1px solid var(--viol);color:var(--text);padding:9px 16px;font-size:11px;z-index:20;border-radius:6px;max-width:80%;display:none}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+</head>
+<body>
+<div id="app">
+  <!-- ===================== TOP BAR ===================== -->
+  <div id="topbar">
+    <div class="brand">LIFECITY BIM<span>EDITOR 5D · CALI</span></div>
+    <button class="tabbtn" id="btn-tipo" title="Tipo de proyecto"><span class="ic">⚑</span> <span id="tipo-label">Sin tipo</span></button>
+    <button class="tabbtn on" id="tab-3d"><span class="ic">◈</span> Modelo 3D</button>
+    <button class="tabbtn" id="tab-plan"><span class="ic">▤</span> Planta</button>
+    <div class="sep"></div>
+    <span class="hint">Nivel activo</span>
+    <select id="active-level" title="Nivel activo para planta y creación"></select>
+    <div class="sep"></div>
+    <select id="filter-state" class="mini" title="Filtro existentes / nuevos">
+      <option value="all">Ver: Todos</option>
+      <option value="new">Solo NUEVOS</option>
+      <option value="exist">Solo EXISTENTES</option>
+    </select>
+    <div class="grow"></div>
+    <button class="tabbtn" id="btn-claude"><span class="ic">✦</span> Diseñar con Claude</button>
+    <button class="tabbtn" id="btn-rentas"><span class="ic">🏠</span> Rentas / Facility</button>
+    <button class="tabbtn" id="btn-apu-db"><span class="ic">≣</span> Base APU</button>
+    <button class="tabbtn" id="btn-logout" title="Cerrar sesión">⏻</button>
+  </div>
+
+  <!-- ===================== LEFT SIDEBAR ===================== -->
+  <aside id="left">
+    <div class="section" data-k="predio">
+      <h2><span>Predio</span><span class="dot"></span></h2>
+      <div class="body"><div class="predio-head" id="predio-head"><div class="empty">Sin predio. Ábrelo desde el visor.</div></div></div>
+    </div>
+
+    <div class="section" data-k="potnorms">
+      <h2><span>Obra nueva · Normas POT</span><span class="dot" style="background:#4dd0e1"></span></h2>
+      <div class="body">
+        <button class="btn" id="btn-pick-front"><span class="ic">⇧</span> Marcar FRENTE con clic en el 3D (sugiere el resto)</button>
+        <div class="hint" id="front-info">Sin frente definido. Clic en un borde 3D o asigna cada lado manualmente abajo.</div>
+        <div id="edge-role-list"></div>
+        <div class="ctl"><label>Antejardín (m) <span class="v" id="v-ante">0.0</span></label><input type="range" id="s-ante" min="0" max="8" step="0.5" value="0"></div>
+        <label class="toggle"><input type="checkbox" id="c-vola"><span>Voladizo desde nivel 2 (máx 0,25 × antejardín)</span></label>
+        <label class="toggle"><input type="checkbox" id="c-patio1"><span>Patio en LATERAL 1 (dimensión según norma)</span></label>
+        <label class="toggle"><input type="checkbox" id="c-patio2"><span>Patio en LATERAL 2 (dimensión según norma)</span></label>
+        <button class="btn primary" id="btn-add-pot"><span class="ic">⌂</span> Crear masa normativa POT</button>
+        <div id="pot-report" class="hint"></div>
+      </div>
+    </div>
+
+    <div class="section" data-k="masa">
+      <h2><span>Masas conceptuales</span><span class="dot"></span></h2>
+      <div class="body">
+        <div class="ctl"><label>Pisos <span class="v" id="v-floors">10</span></label><input type="range" id="s-floors" min="1" max="60" value="10"></div>
+        <div class="ctl"><label>Altura de piso (m) <span class="v" id="v-fh">3.0</span></label><input type="range" id="s-fh" min="2.4" max="6" step="0.1" value="3"></div>
+        <div class="ctl"><label>Retiro (m) <span class="v" id="v-off">0</span></label><input type="range" id="s-off" min="0" max="15" step="0.5" value="0"></div>
+        <label class="toggle"><input type="checkbox" id="c-stack"><span>Apilar (torre/podio)</span></label>
+        <button class="btn viol" id="btn-add"><span class="ic">＋</span> Crear masa</button>
+        <div id="mass-list"><div class="empty">Sin masas.</div></div>
+      </div>
+    </div>
+
+    <div class="section collapsed" data-k="cloud">
+      <h2><span>Nube de puntos + Transform</span><span class="dot" style="background:#6bd96b"></span></h2>
+      <div class="body">
+        <label class="btn" for="file-cloud"><span class="ic">⋮⋮</span> Importar (.ply .pcd .xyz .csv)</label>
+        <input type="file" id="file-cloud" accept=".ply,.pcd,.xyz,.pts,.txt,.csv,.asc" style="display:none">
+        <div class="row2">
+          <button class="btn sm" id="btn-cloud-points"><span class="ic">∴</span> Puntos</button>
+          <button class="btn sm" id="btn-cloud-mesh"><span class="ic">△</span> Malla</button>
+        </div>
+        <div class="ctl"><label>Tamaño de punto <span class="v" id="v-psize">1.5</span></label><input type="range" id="s-psize" min="0.3" max="6" step="0.1" value="1.5"></div>
+        <label class="toggle"><input type="checkbox" id="c-zup" checked><span>Z es la altura (topografía)</span></label>
+        <div class="hint">Posiciona la nube en el terreno con el gizmo:</div>
+        <div class="row3">
+          <button class="btn sm" id="g-move"><span class="ic">✥</span> Mover</button>
+          <button class="btn sm" id="g-rot"><span class="ic">⟳</span> Rotar</button>
+          <button class="btn sm" id="g-scale"><span class="ic">⤢</span> Escalar</button>
+        </div>
+        <div class="ctl"><label>Escala manual <span class="v" id="v-cscale">1.00</span></label><input type="range" id="s-cscale" min="0.05" max="5" step="0.01" value="1"></div>
+        <div class="ctl"><label>Rotación Y (°) <span class="v" id="v-crot">0</span></label><input type="range" id="s-crot" min="-180" max="180" step="1" value="0"></div>
+        <div class="row2">
+          <button class="btn sm" id="btn-cloud-fit"><span class="ic">⊞</span> Centrar en lote</button>
+          <button class="btn sm danger" id="btn-cloud-clear"><span class="ic">✕</span> Quitar</button>
+        </div>
+        <div class="hint" id="cloud-info">PLY/PCD o ASCII X Y Z [R G B].</div>
+      </div>
+    </div>
+
+    <div class="section" data-k="bim">
+      <h2><span>Objetos BIM (desde nube)</span><span class="dot" style="background:#4d9fff"></span></h2>
+      <div class="body">
+        <div class="ctl"><label>Tipo de elemento</label><select id="bim-type"></select></div>
+        <div class="row2">
+          <label class="toggle"><input type="radio" name="estado" id="st-new" checked><span>Nuevo</span></label>
+          <label class="toggle"><input type="radio" name="estado" id="st-exist"><span>Existente</span></label>
+        </div>
+        <button class="btn on" id="btn-boxsel"><span class="ic">⬚</span> Selección de caja (arrastrar en 3D)</button>
+        <button class="btn ok" id="btn-bim-create"><span class="ic">＋</span> Crear objeto en la selección</button>
+        <div class="hint" id="bim-info">Activa "Selección de caja" y arrastra sobre la nube para encerrar (ej. un muro o columna). El objeto se ajusta al bounding-box. Sin selección lo crea con tamaño estándar en el nivel activo.</div>
+        <div id="bim-list"><div class="empty">Sin objetos BIM.</div></div>
+      </div>
+    </div>
+
+    <div class="section" data-k="niveles">
+      <h2><span>Niveles / Plantas</span><span class="dot"></span></h2>
+      <div class="body">
+        <div class="row2">
+          <div class="ctl"><label>Nombre</label><input id="lvl-name" placeholder="N1"></div>
+          <div class="ctl"><label>Elev (m)</label><input id="lvl-elev" type="number" step="0.1" value="0"></div>
+        </div>
+        <button class="btn" id="btn-add-level"><span class="ic">＋</span> Agregar nivel</button>
+        <div id="level-list"><div class="empty">Sin niveles.</div></div>
+      </div>
+    </div>
+
+    <div class="section collapsed" data-k="muros">
+      <h2><span>Muros anclados a nivel</span><span class="dot" style="background:#9c6bff"></span></h2>
+      <div class="body">
+        <div class="row2">
+          <div class="ctl"><label>Nivel base</label><select id="wall-base"></select></div>
+          <div class="ctl"><label>Nivel superior</label><select id="wall-top"></select></div>
+        </div>
+        <div class="ctl"><label>Espesor (m) <span class="v" id="v-wt">0.20</span></label><input type="range" id="s-wt" min="0.1" max="1" step="0.05" value="0.2"></div>
+        <button class="btn viol" id="btn-draw-wall"><span class="ic">✎</span> Dibujar muro (2 clics)</button>
+        <div class="hint" id="wall-hint">Elige base/superior y traza la directriz. El muro queda anclado a los niveles.</div>
+        <div id="wall-list"></div>
+      </div>
+    </div>
+
+    <div class="section collapsed" data-k="mep">
+      <h2><span>Instalaciones MEP (tipo CYPE)</span><span class="dot" style="background:#4dd0e1"></span></h2>
+      <div class="body">
+        <div class="ctl"><label>Sistema</label>
+          <select id="mep-system">
+            <option value="hidraulica">Hidráulica · Agua fría (PVC/PF+UAD)</option>
+            <option value="caliente">Hidráulica · Agua caliente (CPVC)</option>
+            <option value="sanitaria">Sanitaria / desagüe (PVC-S)</option>
+            <option value="ventilacion">Ventilación sanitaria</option>
+            <option value="electrica">Eléctrica · Canalización/conduit</option>
+            <option value="gas">Gas domiciliario</option>
+          </select>
+        </div>
+        <div class="ctl"><label>Diámetro (mm) <span class="v" id="v-dia">25</span></label><input type="range" id="s-dia" min="12" max="315" step="1" value="25"></div>
+        <button class="btn" id="btn-mep-route"><span class="ic">〰</span> Trazar tubería (multi-clic · Enter/Esc)</button>
+        <div class="row2">
+          <button class="btn sm" id="btn-mep-fixture"><span class="ic">◉</span> Punto/salida</button>
+          <button class="btn sm" id="btn-mep-panel"><span class="ic">▣</span> Tablero</button>
+        </div>
+        <div class="hint" id="mep-info">Traza redes por planta o en 3D. Cada red suma metros lineales al presupuesto. Puntos/salidas y tableros se cuentan por unidad.</div>
+        <div id="mep-list"><div class="empty">Sin redes MEP.</div></div>
+      </div>
+    </div>
+
+    <div class="section collapsed" data-k="rentas-left">
+      <h2><span>Rentas · Habitaciones</span><span class="dot" style="background:#ff5252"></span></h2>
+      <div class="body">
+        <button class="btn danger" id="btn-room-draw"><span class="ic">▭</span> Dibujar habitación (2 clics en planta/3D)</button>
+        <button class="btn" id="btn-open-rentas"><span class="ic">📊</span> Abrir dashboard de rentas</button>
+        <div class="hint">Cada habitación/apto lleva arrendatario, periodo, canon y contrato. El dashboard muestra en tiempo real cuáles están rentadas.</div>
+        <div id="room-list-left"><div class="empty">Sin habitaciones.</div></div>
+      </div>
+    </div>
+
+    <div class="section" data-k="export">
+      <h2><span>Guardar / Exportar</span><span class="dot"></span></h2>
+      <div class="body">
+        <button class="btn primary" id="btn-save-study"><span class="ic">✓</span> Guardar proyecto</button>
+        <button class="btn" id="btn-budget"><span class="ic">$</span> Ver presupuesto 5D</button>
+        <button class="btn" id="btn-sheet"><span class="ic">▭</span> Lámina (ISO+planta+alzado)</button>
+        <button class="btn viol" id="btn-ifc"><span class="ic">▣</span> Exportar IFC</button>
+        <button class="btn" id="btn-export"><span class="ic">⇩</span> Exportar JSON</button>
+        <button class="btn ok" id="btn-mcp-export"><span class="ic">⇪</span> Exportar para Claude (MCP)</button>
+        <label class="btn ok" for="mcp-import"><span class="ic">⇩</span> Importar diseño de Claude (MCP)</label>
+        <input type="file" id="mcp-import" accept=".json" style="display:none">
+        <div class="hint">Guarda el JSON en <b>mcp/proyectos/</b> de la repo; conecta el servidor MCP a Claude Desktop/Code y pídele opciones de diseño por habitación. Luego importa el archivo actualizado.</div>
+        <button class="btn" id="btn-back"><span class="ic">←</span> Volver al visor</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ===================== CENTER ===================== -->
+  <main id="center">
+    <canvas id="canvas"></canvas>
+    <div id="boxsel" style="position:absolute;border:1px dashed #4d9fff;background:rgba(77,159,255,.12);display:none;pointer-events:none;z-index:5"></div>
+    <div class="hud hud-tl"><div><span>PREDIO </span><span class="v" id="hud-npn">—</span></div><div><span>ÁREA LOTE </span><span class="v" id="hud-area">—</span></div><div><span>NIVEL </span><span class="v" id="hud-level">—</span></div></div>
+    <div class="hud hud-br"><div>CALI · BIM 5D EDITOR</div><div style="color:var(--viol)">v1.0 · LIFECITY</div></div>
+    <div class="flash" id="flash"></div>
+
+    <!-- PLANTA 2D -->
+    <div id="plan-host">
+      <div id="plan-toolbar">
+        <div class="ptool on" data-ptool="select">▧ Seleccionar</div>
+        <div class="ptool" data-ptool="wall">▬ Muro</div>
+        <div class="ptool" data-ptool="column">■ Columna</div>
+        <div class="ptool" data-ptool="object">◻ Objeto</div>
+        <div class="ptool" data-ptool="room">▭ Habitación</div>
+        <div class="ptool" data-ptool="pipe">〰 Tubería MEP</div>
+        <div class="ptool" data-ptool="fit">⊞ Encuadrar</div>
+      </div>
+      <svg id="plan-svg" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </main>
+
+  <!-- ===================== RIGHT SIDEBAR ===================== -->
+  <aside id="right">
+    <div class="section" data-k="pot">
+      <h2><span>Aprovechamiento (POT)</span><span class="dot"></span></h2>
+      <div class="body">
+        <div class="stat-grid">
+          <div class="stat"><span class="lbl">ICB básico</span><span class="val" id="m-icb">—</span></div>
+          <div class="stat"><span class="lbl">ICA adicional</span><span class="val viol" id="m-ica">—</span></div>
+        </div>
+        <div class="meter">
+          <div class="lbls"><span>Área construida</span><span id="mtr-txt">0 / 0 m²</span></div>
+          <div class="bar"><span id="mtr-bar" style="width:0%"></span></div>
+          <div class="lbls"><span class="hint" id="mtr-note">Define ICB/ICA para ver el máximo.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" data-k="props">
+      <h2><span>Propiedades</span><span class="dot" style="background:#4dd0e1"></span></h2>
+      <div class="body"><div id="props"><div class="empty">Selecciona un elemento en 3D o en planta.</div></div></div>
+    </div>
+
+    <div class="section" data-k="metrics">
+      <h2><span>Métricas 5D</span><span class="dot"></span></h2>
+      <div class="body">
+        <div class="stat-grid">
+          <div class="stat"><span class="lbl">Masas</span><span class="val" id="m-count">0</span></div>
+          <div class="stat"><span class="lbl">Altura máx</span><span class="val" id="m-h">0 m</span></div>
+          <div class="stat"><span class="lbl">Objetos BIM</span><span class="val new" id="m-bim">0</span></div>
+          <div class="stat"><span class="lbl">Redes MEP</span><span class="val" id="m-mep">0 m</span></div>
+          <div class="stat"><span class="lbl">Habitaciones</span><span class="val" id="m-rooms">0</span></div>
+          <div class="stat"><span class="lbl">Presupuesto</span><span class="val ok" id="m-cost">$ 0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" data-k="rentmini">
+      <h2><span>Rentas en tiempo real</span><span class="dot" style="background:#ff5252"></span></h2>
+      <div class="body">
+        <div class="stat-grid">
+          <div class="stat"><span class="lbl">Rentadas</span><span class="val" id="r-rented" style="color:#ff8f8f">0</span></div>
+          <div class="stat"><span class="lbl">Disponibles</span><span class="val ok" id="r-free">0</span></div>
+        </div>
+        <div class="stat"><span class="lbl">Ingreso mensual (canon rentado)</span><span class="val ok" id="r-income">$ 0</span></div>
+        <div id="rent-mini"><div class="empty">Sin habitaciones.</div></div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- ===================== MODAL: BASE APU ===================== -->
+<div class="modal" id="modal-apu">
+  <div class="box">
+    <div class="mh"><div><h3>Base de datos APU</h3><div class="sub">Análisis de Precios Unitarios · Colombia (repo 5D Grupo 99)</div></div><button class="x" data-close="modal-apu">✕</button></div>
+    <div class="mb">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap">
+        <label class="btn sm" style="width:auto" for="excel-input"><span class="ic">⇧</span> Subir Excel (Código·Descripción·Unidad·Valor)</label>
+        <input type="file" id="excel-input" accept=".xlsx,.xls" style="display:none">
+        <button class="btn sm" style="width:auto" id="btn-apu-demo"><span class="ic">✎</span> Cargar APU demo</button>
+        <span class="hint" id="apu-count">0 APUs</span>
+      </div>
+      <div style="max-height:52vh;overflow:auto;border:1px solid var(--line)">
+        <table class="tbl"><thead><tr><th>Código</th><th>Descripción</th><th>Unidad</th><th>Valor unitario</th></tr></thead><tbody id="apu-tbody"><tr><td colspan="4" class="empty">Sube un Excel o carga los APU demo.</td></tr></tbody></table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: ASIGNAR APU ===================== -->
+<div class="modal" id="modal-apu-sel">
+  <div class="box sm">
+    <div class="mh"><div><h3>Asignar APU</h3><div class="sub" id="apu-sel-target">—</div></div><button class="x" data-close="modal-apu-sel">✕</button></div>
+    <div class="mb">
+      <input class="inp" id="apu-search" placeholder="Buscar por código o descripción…" style="margin-bottom:10px">
+      <div style="max-height:44vh;overflow:auto;border:1px solid var(--line)"><table class="tbl"><tbody id="apu-sel-list"></tbody></table></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: PRESUPUESTO ===================== -->
+<div class="modal" id="modal-budget">
+  <div class="box">
+    <div class="mh"><div><h3>Presupuesto 5D</h3><div class="sub">Cantidades del modelo × APU asignado</div></div><button class="x" data-close="modal-budget">✕</button></div>
+    <div class="mb">
+      <div class="stat" style="margin-bottom:12px"><span class="lbl">Costo total directo</span><span class="val ok" id="budget-total" style="font-size:22px">$ 0</span></div>
+      <div style="max-height:56vh;overflow:auto;border:1px solid var(--line)">
+        <table class="tbl"><thead><tr><th>Elemento</th><th>Estado</th><th>APU</th><th>Cantidad</th><th>V. Unit.</th><th>Subtotal</th><th></th></tr></thead><tbody id="budget-tbody"></tbody></table>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:10px"><button class="btn sm" style="width:auto" id="btn-budget-csv"><span class="ic">⇩</span> Exportar CSV</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: RENTAS / FACILITY ===================== -->
+<div class="modal" id="modal-rentas">
+  <div class="box">
+    <div class="mh"><div><h3>Facility Management · Esquema de rentas</h3><div class="sub" id="rentas-sub">Ocupación en tiempo real</div></div><button class="x" data-close="modal-rentas">✕</button></div>
+    <div class="mb">
+      <div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:14px">
+        <div class="stat"><span class="lbl">Total unidades</span><span class="val" id="rd-total">0</span></div>
+        <div class="stat"><span class="lbl">Rentadas</span><span class="val" id="rd-rented" style="color:#ff8f8f">0</span></div>
+        <div class="stat"><span class="lbl">Disponibles</span><span class="val ok" id="rd-free">0</span></div>
+        <div class="stat"><span class="lbl">Ocupación</span><span class="val" id="rd-occ">0%</span></div>
+      </div>
+      <div class="stat-grid" style="grid-template-columns:1fr 1fr;margin-bottom:14px">
+        <div class="stat"><span class="lbl">Ingreso mensual (rentado)</span><span class="val ok" id="rd-income">$ 0</span></div>
+        <div class="stat"><span class="lbl">Canon potencial (100%)</span><span class="val" id="rd-potential">$ 0</span></div>
+      </div>
+      <div style="max-height:46vh;overflow:auto;border:1px solid var(--line)">
+        <table class="tbl"><thead><tr><th>Unidad</th><th>Nivel</th><th>Área</th><th>Arrendatario</th><th>Periodo</th><th>Canon</th><th>Estado</th><th>Docs</th><th></th></tr></thead><tbody id="rentas-tbody"></tbody></table>
+      </div>
+      <div class="hint" style="margin-top:8px">El estado RENTADA se calcula en tiempo real: hay arrendatario y la fecha de hoy cae dentro del periodo del contrato.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: EDITAR HABITACIÓN ===================== -->
+<div class="modal" id="modal-room">
+  <div class="box sm">
+    <div class="mh"><div><h3 id="room-title">Habitación</h3><div class="sub">Contrato de arrendamiento</div></div><button class="x" data-close="modal-room">✕</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:10px">
+      <div class="row2">
+        <div class="ctl"><label>Nombre de la unidad</label><input class="inp" id="room-name" placeholder="Apto 301 / Habitación A"></div>
+        <div class="ctl"><label>Uso del espacio</label>
+          <select class="inp" id="room-uso"><option value="habitacion">Habitación</option><option value="sala">Sala</option><option value="apartamento">Apartamento completo</option><option value="cocina">Cocina</option><option value="bano">Baño</option><option value="otro">Otro</option></select></div>
+      </div>
+      <div class="hint">Regla de diseño: toda HABITACIÓN y la SALA deben tener ventana (a fachada o patio). Claude la respeta al generar opciones vía MCP.</div>
+      <div class="row2">
+        <div class="ctl"><label>Arrendatario</label><input class="inp" id="room-tenant" placeholder="Nombre completo"></div>
+        <div class="ctl"><label>Canon mensual ($)</label><input class="inp" id="room-canon" type="number" min="0" step="10000" placeholder="1500000"></div>
+      </div>
+      <div class="row2">
+        <div class="ctl"><label>Inicio contrato</label><input class="inp" id="room-from" type="date"></div>
+        <div class="ctl"><label>Fin contrato</label><input class="inp" id="room-to" type="date"></div>
+      </div>
+      <div class="ctl"><label>Documentos (contrato, cédula, etc.)</label>
+        <input class="inp" id="room-docs" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx">
+      </div>
+      <div id="room-doclist" style="display:flex;flex-direction:column;gap:4px"></div>
+      <div class="row2">
+        <button class="btn ok" id="room-save"><span class="ic">✓</span> Guardar contrato</button>
+        <button class="btn danger" id="room-delete"><span class="ic">✕</span> Eliminar unidad</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: DISEÑAR CON CLAUDE ===================== -->
+<div class="modal" id="modal-claude">
+  <div class="box sm">
+    <div class="mh"><div><h3>✦ Diseñar con Claude</h3><div class="sub">Genera un diseño y CREA los elementos BIM en la habitación</div></div><button class="x" data-close="modal-claude">✕</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:10px">
+      <div class="ctl"><label>Habitación / espacio a diseñar</label><select class="inp" id="cl-room"></select></div>
+      <div class="ctl"><label>Indicaciones para Claude (opcional)</label><textarea class="inp" id="cl-brief" rows="3" placeholder="Ej: alcoba principal, cama frente a la ventana, closet amplio en el muro sur, incluir baño privado…"></textarea></div>
+      <div class="ctl"><label>API key de Anthropic (se guarda solo en este navegador)</label><input class="inp" id="cl-key" type="password" placeholder="sk-ant-…  (console.anthropic.com → API Keys)"></div>
+      <button class="btn primary" id="cl-go"><span class="ic">✦</span> Generar diseño y crear elementos</button>
+      <div class="hint" id="cl-status">Claude aplica la regla dura: toda habitación y la sala llevan VENTANA en el perímetro. Los elementos aparecen al instante en 3D y en la planta. Alternativa sin API key: servidor MCP en mcp/ (Claude Desktop/Code).</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: TIPO DE PROYECTO ===================== -->
+<div class="modal" id="modal-tipo">
+  <div class="box sm">
+    <div class="mh"><div><h3>¿Qué tipo de proyecto vas a hacer?</h3><div class="sub">Según el requerimiento de adquisición LifeCity ($1.500M COP)</div></div><button class="x" data-close="modal-tipo">✕</button></div>
+    <div class="mb" style="display:flex;flex-direction:column;gap:10px">
+      <button class="btn" id="tipo-obra" style="padding:16px;border-color:var(--accent-3)"><span class="ic" style="font-size:18px">⌂</span>
+        <span><b>PERFIL 1 · Obra nueva</b><br><span class="hint">Lote o casa para demoler · mín. 12×12 m · uso mixto · esquinera o entre culatas. Usa el creador de masas con normas POT (aislamientos, voladizo, patios).</span></span></button>
+      <button class="btn" id="tipo-remo" style="padding:16px;border-color:var(--ok)"><span class="ic" style="font-size:18px">⟳</span>
+        <span><b>PERFIL 2 · Remodelación / Multifamiliar</b><br><span class="hint">Activo en deterioro · 7+ unidades · levanta el existente con NUBE DE PUNTOS y crea objetos BIM sobre ella (existente vs nuevo).</span></span></button>
+      <div class="hint">Después se abre el asistente de fondeo: valida el predio contra el requerimiento del inversionista y genera la ficha técnica.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: WIZARD DE FONDEO ===================== -->
+<div class="modal" id="modal-fondeo">
+  <div class="box">
+    <div class="mh"><div><h3>Asistente de fondeo · LifeCity</h3><div class="sub" id="fondeo-sub">Requerimiento de adquisición · Cali (Oeste y Centro) · Presupuesto $1.500M COP</div></div><button class="x" data-close="modal-fondeo">✕</button></div>
+    <div class="mb" style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="ctl"><label>Barrio / zona</label>
+          <select class="inp" id="f-barrio">
+            <optgroup label="Sector Oeste"><option>El Peñón</option><option>Santa Teresita</option><option>Santa Rita</option><option>Normandía</option></optgroup>
+            <optgroup label="Centro / Pericentro"><option>San Fernando</option><option>Granada</option><option>San Pedro</option><option>Santa Mónica</option></optgroup>
+            <option value="otro">Otro (fuera de las zonas de búsqueda)</option>
+          </select></div>
+        <div class="row2">
+          <div class="ctl"><label>Frente del lote (m)</label><input class="inp" id="f-frente" type="number" step="0.1" min="0" placeholder="12.0"></div>
+          <div class="ctl"><label>Fondo del lote (m)</label><input class="inp" id="f-fondo" type="number" step="0.1" min="0" placeholder="12.0"></div>
+        </div>
+        <div class="ctl"><label>Precio de compra estimado (COP millones)</label><input class="inp" id="f-precio" type="number" step="10" min="0" placeholder="1200"></div>
+        <div class="ctl"><label>Uso del suelo</label>
+          <select class="inp" id="f-uso"><option value="mixto">Mixto (Residencial + Comercial)</option><option value="residencial">Residencial</option><option value="comercial">Comercial</option></select></div>
+        <div id="f-perfil1" style="display:flex;flex-direction:column;gap:10px">
+          <div class="ctl"><label>Configuración del lote</label>
+            <select class="inp" id="f-config"><option value="esquinera">Esquinera</option><option value="culatas">Entre culatas (vecinos ≥5 pisos)</option><option value="medianero">Medianero simple</option></select></div>
+          <div class="ctl"><label>Estado físico</label>
+            <select class="inp" id="f-estado"><option value="baldio">Lote baldío</option><option value="demoler">Casa para demoler</option><option value="bueno">Construcción en buen estado</option></select></div>
+        </div>
+        <div id="f-perfil2" style="display:none;flex-direction:column;gap:10px">
+          <div class="ctl"><label>Unidades residenciales posibles</label><input class="inp" id="f-unidades" type="number" min="0" step="1" placeholder="7"></div>
+          <div class="ctl"><label>Estado del activo</label>
+            <select class="inp" id="f-deterioro"><option value="deterioro">Alto deterioro / abandono</option><option value="regular">Regular (recuperable)</option><option value="bueno">Buen estado</option></select></div>
+        </div>
+        <label class="toggle"><input type="checkbox" id="f-tradicion"><span>Tradición saneada (estudio de títulos OK)</span></label>
+        <label class="toggle"><input type="checkbox" id="f-fotos"><span>Registro fotográfico de entorno y fachada</span></label>
+        <label class="toggle"><input type="checkbox" id="f-medidas"><span>Medidas exactas de frente y fondo verificadas</span></label>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div class="stat"><span class="lbl">Cumplimiento del requerimiento</span><span class="val" id="f-score">—</span></div>
+        <div id="f-checklist" style="display:flex;flex-direction:column;gap:5px;max-height:44vh;overflow:auto"></div>
+        <button class="btn ok" id="f-save"><span class="ic">✓</span> Guardar evaluación</button>
+        <button class="btn viol" id="f-ficha"><span class="ic">▭</span> Exportar ficha técnica (inversionista)</button>
+        <div class="hint">La ficha técnica reúne lo que exige el inversionista: medidas exactas, fotos, altura permitida e índice (ICB/ICA del predio), tradición y perfil. Preséntala para cerrar el fondeo.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
+import { PLYLoader } from 'three/addons/loaders/PLYLoader.js';
+import { PCDLoader } from 'three/addons/loaders/PCDLoader.js';
+import Delaunator from 'https://cdn.jsdelivr.net/npm/delaunator@5.0.1/+esm';
+
+const $=(id)=>document.getElementById(id);
+const R=6378137;
+const fmt=(n)=>Math.round(n).toLocaleString('es-CO');
+const money=(n)=>'$ '+Math.round(n).toLocaleString('es-CO');
+
+/* ============================================================
+   CATÁLOGO DE ELEMENTOS BIM (adaptado de repo 49 + MEP)
+   ============================================================ */
+const CATALOG=[
+  {id:'muro-mamposteria',cat:'muro',label:'Muro mampostería',unit:'m2',dims:{w:3,h:2.4,d:0.15},color:0xb5651d,q:d=>d.w*d.h},
+  {id:'muro-concreto',cat:'muro',label:'Muro concreto',unit:'m2',dims:{w:3,h:2.4,d:0.2},color:0x9e9e9e,q:d=>d.w*d.h},
+  {id:'muro-drywall',cat:'muro',label:'Muro drywall',unit:'m2',dims:{w:3,h:2.4,d:0.1},color:0xd8d0c0,q:d=>d.w*d.h},
+  {id:'columna-concreto',cat:'columna',label:'Columna concreto',unit:'ml',dims:{w:0.3,h:3,d:0.3},color:0x8c8c8c,q:d=>d.h},
+  {id:'columna-metalica',cat:'columna',label:'Columna metálica',unit:'ml',dims:{w:0.25,h:3,d:0.25},color:0x5b6b7a,q:d=>d.h},
+  {id:'viga-concreto',cat:'viga',label:'Viga concreto',unit:'ml',dims:{w:3,h:0.4,d:0.3},color:0x7a8390,q:d=>d.w},
+  {id:'losa-entrepiso',cat:'losa',label:'Losa entrepiso',unit:'m2',dims:{w:4,h:0.15,d:4},color:0x64748b,q:d=>d.w*d.d},
+  {id:'cubierta-metalica',cat:'cubierta',label:'Cubierta metálica',unit:'m2',dims:{w:4,h:0.05,d:5},color:0x7d8b96,q:d=>d.w*d.d},
+  {id:'cubierta-barro',cat:'cubierta',label:'Cubierta teja barro',unit:'m2',dims:{w:4,h:0.05,d:5},color:0xa0522d,q:d=>d.w*d.d},
+  {id:'puerta',cat:'puerta',label:'Puerta',unit:'un',dims:{w:0.9,h:2.1,d:0.1},color:0x8b5a2b,q:()=>1},
+  {id:'ventana',cat:'ventana',label:'Ventana',unit:'un',dims:{w:1.2,h:1.2,d:0.1},color:0x4dd0e1,q:()=>1},
+  {id:'sanitario',cat:'sanitario',label:'Sanitario (inodoro)',unit:'un',dims:{w:0.4,h:0.75,d:0.65},color:0xf0f0f0,q:()=>1},
+  {id:'lavamanos',cat:'sanitario',label:'Lavamanos',unit:'un',dims:{w:0.55,h:0.85,d:0.5},color:0xe6e6e6,q:()=>1},
+  {id:'lavaplatos',cat:'sanitario',label:'Lavaplatos mesón',unit:'un',dims:{w:0.8,h:0.9,d:0.5},color:0xc9c9c9,q:()=>1},
+  {id:'reja',cat:'reja',label:'Reja enrollable',unit:'m2',dims:{w:3,h:2.2,d:0.1},color:0x4a4a4a,q:d=>d.w*d.h},
+];
+const CAT_LABEL={muro:'Muros',columna:'Columnas',viga:'Vigas',losa:'Losas',cubierta:'Cubiertas',puerta:'Puertas',ventana:'Ventanas',sanitario:'Aparatos sanitarios',reja:'Rejas / cerramientos'};
+function catalogById(id){ return CATALOG.find(c=>c.id===id); }
+// llenar select
+(function(){ const s=$('bim-type'); const groups={}; CATALOG.forEach(c=>{ (groups[c.cat]=groups[c.cat]||[]).push(c); });
+  s.innerHTML=Object.keys(groups).map(cat=>`<optgroup label="${CAT_LABEL[cat]||cat}">`+groups[cat].map(c=>`<option value="${c.id}">${c.label}</option>`).join('')+`</optgroup>`).join('');
+})();
+
+const MEP_COLORS={hidraulica:0x4dd0e1,caliente:0xff7676,sanitaria:0xc98b5b,ventilacion:0x9c6bff,electrica:0xffd166,gas:0xffa94d};
+const MEP_LABEL={hidraulica:'Agua fría',caliente:'Agua caliente',sanitaria:'Sanitaria',ventilacion:'Ventilación',electrica:'Eléctrica',gas:'Gas'};
+
+/* ============================================================
+   HANDOFF (predio desde el visor)
+   ============================================================ */
+let lot=null;
+try{ lot=JSON.parse(localStorage.getItem('cali_massing_handoff')||'null'); }catch(e){}
+
+function llToLocal(lat,lon,clat,clon){
+  const x=(lon-clon)*Math.PI/180*R*Math.cos(clat*Math.PI/180);
+  const z=-(lat-clat)*Math.PI/180*R; return {x,z};
+}
+function shoelace(pts){ let a=0; for(let i=0,j=pts.length-1;i<pts.length;j=i++){ a+=(pts[j].x*pts[i].z-pts[i].x*pts[j].z);} return Math.abs(a/2); }
+
+let footprint=[]; let lotArea=0; let icb=null, ica=null, maxBuild=0;
+if(lot && lot.ring && lot.centroid){
+  const c=lot.centroid;
+  footprint=lot.ring.map(([lon,lat])=>llToLocal(lat,lon,c.lat,c.lon));
+  if(footprint.length>2){ const a=footprint[0],b=footprint[footprint.length-1]; if(Math.abs(a.x-b.x)<1e-6&&Math.abs(a.z-b.z)<1e-6) footprint.pop(); }
+  lotArea=lot.area || Math.round(shoelace(footprint));
+  icb=lot.icb; ica=lot.ica; maxBuild=lotArea*(((icb||0)+(ica||0)));
+}
+
+/* ---- offset (retiro) ---- */
+function polygonAreaSigned(p){ let a=0; for(let i=0,j=p.length-1;i<p.length;j=i++){ a+=(p[j].x*p[i].z-p[i].x*p[j].z);} return a/2; }
+function offsetPolygon(pts, dist){
+  if(dist<=0) return pts.slice();
+  const n=pts.length; if(n<3) return pts.slice();
+  function build(sign, dd){ const out=[];
+    for(let i=0;i<n;i++){ const prev=pts[(i-1+n)%n], cur=pts[i], next=pts[(i+1)%n];
+      let e1={x:cur.x-prev.x,z:cur.z-prev.z}, e2={x:next.x-cur.x,z:next.z-cur.z};
+      const l1=Math.hypot(e1.x,e1.z)||1, l2=Math.hypot(e2.x,e2.z)||1;
+      e1={x:e1.x/l1,z:e1.z/l1}; e2={x:e2.x/l2,z:e2.z/l2};
+      const n1={x:e1.z,z:-e1.x}, n2={x:e2.z,z:-e2.x};
+      let bx=n1.x+n2.x, bz=n1.z+n2.z; const bl=Math.hypot(bx,bz);
+      if(bl<1e-6){ out.push({x:cur.x+sign*n1.x*dd,z:cur.z+sign*n1.z*dd}); continue; }
+      bx/=bl; bz/=bl; const cosHalf=Math.max(0.35, bx*n1.x+bz*n1.z); const d=sign*dd/cosHalf;
+      out.push({x:cur.x+bx*d,z:cur.z+bz*d}); } return out; }
+  const a0=shoelace(pts);
+  function tryDist(dd){ const cands=[build(1,dd),build(-1,dd)].map(p=>({p,a:shoelace(p),ok:polygonAreaSigned(p)*polygonAreaSigned(pts)>0})).filter(c=>c.ok && c.a>a0*0.04 && c.a<a0*0.999);
+    if(!cands.length) return null; cands.sort((x,y)=>y.a-x.a); return cands[0].p; }
+  for(let dd=dist; dd>0.05; dd-=Math.max(0.1,dist*0.08)){ const r=tryDist(dd); if(r) return r; }
+  return pts.slice();
+}
+function toShape(pts){ const s=new THREE.Shape(); s.moveTo(pts[0].x,-pts[0].z); for(let i=1;i<pts.length;i++) s.lineTo(pts[i].x,-pts[i].z); return s; }
+
+/* ============================================================
+   NORMAS VOLUMÉTRICAS POT CALI (Acuerdo 0373/2014 · Playbook LifeCity)
+   ============================================================ */
+const POT={
+  // Aislamiento posterior según pisos TOTALES (≥13: H/3)
+  posterior(p,H){ if(p<=2)return 3; if(p<=5)return 4.5; if(p<=8)return 6; if(p<=10)return 7.5; if(p<=12)return 10; return H/3; },
+  // Aislamiento lateral según pisos TOTALES: 1-3 → 0 m (entre medianeros); ≥14: H/3.
+  // OJO error frecuente #1 en curaduría: la norma aplica al total de pisos, NO por tramos.
+  lateral(p,H){ if(p<=3)return 0; if(p<=8)return 4; if(p<=11)return 7; if(p<=13)return 9; return H/3; },
+  // Patio interior mínimo según pisos (lado en m, área en m²)
+  patio(p){ if(p<=3)return{lado:2,area:6}; if(p<=8)return{lado:3,area:9}; if(p<=11)return{lado:3,area:16}; return{lado:5,area:25}; },
+  // Voladizo máximo sobre antejardín (desde el 2° piso, SOLO si hay antejardín)
+  voladizo(ante){ return ante>0? 0.25*ante : 0; }
+};
+
+let frenteIdx=null; // índice de la arista del lote elegida como FRENTE
+const ROLE_COLORS={frente:0x6bd96b,posterior:0xff5252,lateral1:0x4dd0e1,lateral2:0xf4b942};
+const ROLE_LABELS={frente:'FRENTE',posterior:'POSTERIOR',lateral1:'LATERAL 1',lateral2:'LATERAL 2'};
+function edgeDir(i){ const a=footprint[i], b=footprint[(i+1)%footprint.length]; const dx=b.x-a.x, dz=b.z-a.z; const l=Math.hypot(dx,dz)||1; return {x:dx/l,z:dz/l,len:Math.hypot(dx,dz)}; }
+let edgeRolesOverride=null; // asignación MANUAL por arista (manda sobre la deducción automática)
+function autoRolesFrom(idx){ // sugerencia: clasifica cada arista respecto al frente por paralelismo/lado
+  const n=footprint.length; const roles=new Array(n).fill('lateral1');
+  const f=edgeDir(idx);
+  for(let i=0;i<n;i++){
+    if(i===idx){ roles[i]='frente'; continue; }
+    const d=edgeDir(i); const dot=f.x*d.x+f.z*d.z;
+    if(Math.abs(dot)>0.7) roles[i]='posterior';        // paralela al frente → fondo
+    else { const cross=f.x*d.z-f.z*d.x; roles[i]=cross>0?'lateral1':'lateral2'; }
+  }
+  return roles;
+}
+function edgeRoles(){
+  const n=footprint.length;
+  if(edgeRolesOverride && edgeRolesOverride.length===n) return edgeRolesOverride.slice();
+  if(frenteIdx==null) return new Array(n).fill('lateral1');
+  return autoRolesFrom(frenteIdx);
+}
+// Recorta el polígono con un semiplano por cada arista original desplazada su retiro hacia adentro
+function clipByEdgeOffsets(pts, offs){
+  const n=pts.length; let poly=pts.slice();
+  const cx=pts.reduce((s,p)=>s+p.x,0)/n, cz=pts.reduce((s,p)=>s+p.z,0)/n;
+  for(let i=0;i<n;i++){
+    const d=offs[i]; if(!d || d<=0.001) continue;
+    const a=pts[i], b=pts[(i+1)%n]; const dx=b.x-a.x, dz=b.z-a.z; const l=Math.hypot(dx,dz)||1;
+    let nx=dz/l, nz=-dx/l; // normal; orientar hacia el interior (centroide)
+    if(((cx-a.x)*nx+(cz-a.z)*nz)<0){ nx=-nx; nz=-nz; }
+    const ox=a.x+nx*d, oz=a.z+nz*d;
+    const out=[];
+    for(let j=0;j<poly.length;j++){
+      const P=poly[j], Q=poly[(j+1)%poly.length];
+      const dp=(P.x-ox)*nx+(P.z-oz)*nz, dq=(Q.x-ox)*nx+(Q.z-oz)*nz;
+      if(dp>=0) out.push(P);
+      if((dp>=0)!==(dq>=0)){ const t=dp/(dp-dq); out.push({x:P.x+(Q.x-P.x)*t, z:P.z+(Q.z-P.z)*t}); }
+    }
+    poly=out; if(poly.length<3) return null; // el retiro colapsó el lote
+  }
+  return poly;
+}
+// Overlay 3D de roles de aristas (se agrega a la escena en el bloque THREE)
+const gEdges=new THREE.Group();
+function drawEdgeRoles(){
+  gEdges.clear(); if(footprint.length<3 || (frenteIdx==null && !edgeRolesOverride)) return;
+  const roles=edgeRoles();
+  footprint.forEach((a,i)=>{
+    const b=footprint[(i+1)%footprint.length]; const col=ROLE_COLORS[roles[i]];
+    const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(a.x,0.4,a.z),new THREE.Vector3(b.x,0.4,b.z)]),new THREE.LineBasicMaterial({color:col,linewidth:3}));
+    gEdges.add(line);
+    const lab=makeLabel(ROLE_LABELS[roles[i]]+' '+edgeDir(i).len.toFixed(1)+'m','#'+col.toString(16).padStart(6,'0'));
+    lab.position.set((a.x+b.x)/2,2.2,(a.z+b.z)/2); lab.scale.set(15,3.8,1); gEdges.add(lab);
+  });
+}
+// Rect de patio adosado a una arista lateral (edgeIdx del polígono ORIGINAL), a nivel del retiro
+function patioRect(edgeIdx, off, norma){
+  const a=footprint[edgeIdx], b=footprint[(edgeIdx+1)%footprint.length];
+  const d=edgeDir(edgeIdx); const cx=footprint.reduce((s,p)=>s+p.x,0)/footprint.length, cz=footprint.reduce((s,p)=>s+p.z,0)/footprint.length;
+  let nx=d.z, nz=-d.x; const mx=(a.x+b.x)/2, mz=(a.z+b.z)/2;
+  if(((cx-mx)*nx+(cz-mz)*nz)<0){ nx=-nx; nz=-nz; } // normal hacia adentro
+  const w=norma.lado, h=Math.max(norma.lado, norma.area/norma.lado); // lados del patio (≥ lado mínimo)
+  const px=mx+nx*(off+ h/2), pz=mz+nz*(off+ h/2);   // pegado a la fachada interior del retiro
+  const ux=d.x, uz=d.z;
+  return { cx:px, cz:pz, pts:[
+    {x:px-ux*w/2-nx*h/2, z:pz-uz*w/2-nz*h/2},{x:px+ux*w/2-nx*h/2, z:pz+uz*w/2-nz*h/2},
+    {x:px+ux*w/2+nx*h/2, z:pz+uz*w/2+nz*h/2},{x:px-ux*w/2+nx*h/2, z:pz-uz*w/2+nz*h/2}], area:w*h, lado:w };
+}
+function pointInPoly(p, poly){ let inside=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const a=poly[i], b=poly[j];
+  if((a.z>p.z)!==(b.z>p.z) && p.x < (b.x-a.x)*(p.z-a.z)/(b.z-a.z)+a.x) inside=!inside; } return inside; }
+
+/* ============================================================
+   THREE
+   ============================================================ */
+const canvas=$('canvas');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2)); renderer.setClearColor(0x05080d,1); renderer.outputColorSpace=THREE.SRGBColorSpace;
+const scene=new THREE.Scene(); scene.fog=new THREE.Fog(0x05080d,700,3000);
+const camera=new THREE.PerspectiveCamera(45,1,0.5,20000); camera.position.set(160,150,160);
+const controls=new OrbitControls(camera,canvas); controls.enableDamping=true; controls.dampingFactor=0.08; controls.maxPolarAngle=Math.PI*0.499; controls.minDistance=6; controls.maxDistance=4000;
+scene.add(new THREE.AmbientLight(0x4a5878,0.8));
+const sun=new THREE.DirectionalLight(0xffd9a0,1.15); sun.position.set(120,220,90); scene.add(sun);
+const fill=new THREE.DirectionalLight(0x6080ff,0.35); fill.position.set(-120,90,-140); scene.add(fill);
+
+const gContext=new THREE.Group(); scene.add(gContext);
+const ground=new THREE.Mesh(new THREE.PlaneGeometry(6000,6000),new THREE.MeshStandardMaterial({color:0x0d1218,roughness:0.95}));
+ground.rotation.x=-Math.PI/2; ground.position.y=-0.2; gContext.add(ground);
+gContext.add(new THREE.GridHelper(2400,240,0x1a2230,0x11161e));
+
+const gLot=new THREE.Group(); scene.add(gLot); scene.add(gEdges);
+function drawLot(){ gLot.clear(); if(footprint.length<3) return;
+  const shape=toShape(footprint); const geo=new THREE.ShapeGeometry(shape); geo.rotateX(-Math.PI/2);
+  const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x3a6ea5,transparent:true,opacity:0.32,side:THREE.DoubleSide,roughness:0.9})); mesh.position.y=0.05; gLot.add(mesh);
+  const pts=footprint.map(p=>new THREE.Vector3(p.x,0.15,p.z)); pts.push(pts[0].clone());
+  gLot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x6fb3ff}))); }
+
+/* TransformControls para la nube */
+const tcontrols=new TransformControls(camera,canvas); tcontrols.setSize(0.8);
+tcontrols.addEventListener('dragging-changed',(e)=>{ controls.enabled=!e.value; });
+tcontrols.addEventListener('objectChange',()=>{ syncCloudSlidersFromGroup(); });
+scene.add(tcontrols);
+
+/* ============================================================
+   MODELO COMPARTIDO (todo se persiste en el estudio)
+   ============================================================ */
+let masses=[]; let selMass=null; let uid=1;
+let levels=[]; let lid=1;
+let walls=[]; let wid=1;
+let bim=[]; let bid=1;
+let mep=[]; let mid=1;
+let rooms=[]; let rid=1;
+let selEl=null; // {kind, id}
+const palette=[0x9c6bff,0x4dd0e1,0xf4b942,0x6bd96b,0xff8f6b,0xff5b9c];
+
+/* ============================================================
+   MASAS
+   ============================================================ */
+const gMasses=new THREE.Group(); scene.add(gMasses);
+function buildMass(m){
+  if(m.pot){ buildMassPOT(m); return; }
+  if(m.group){ gMasses.remove(m.group); }
+  const g=new THREE.Group(); const pts=offsetPolygon(footprint,m.offset); m.fArea=shoelace(pts);
+  const h=m.floors*m.floorH; const shape=toShape(pts);
+  const geo=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:false}); geo.rotateX(-Math.PI/2); geo.translate(0,m.baseZ,0);
+  const selc=(selMass===m);
+  const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:m.color,transparent:true,opacity:selc?0.8:0.55,roughness:0.5,metalness:0.15,emissive:selc?m.color:0x000000,emissiveIntensity:selc?0.15:0}));
+  mesh.userData={massId:m.id}; g.add(mesh);
+  g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:selc?0xffffff:m.color,transparent:true,opacity:selc?0.9:0.5})));
+  if($('c-floors')?.checked!==false){ const ring=pts.map(p=>new THREE.Vector3(p.x,0,p.z)); ring.push(ring[0].clone());
+    for(let f=1;f<m.floors;f++){ const y=m.baseZ+f*m.floorH; const fr=ring.map(p=>new THREE.Vector3(p.x,y,p.z));
+      g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(fr),new THREE.LineBasicMaterial({color:m.color,transparent:true,opacity:0.22}))); } }
+  gMasses.add(g); m.group=g;
+}
+/* ---- Masa NORMATIVA POT: retiros por arista + voladizo + patios ---- */
+function buildMassPOT(m){
+  if(m.group){ gMasses.remove(m.group); m.group=null; }
+  const warnings=[]; m.builtTotal=0; m.fArea=0;
+  const p=m.floors, H=p*m.floorH;
+  const post=POT.posterior(p,H), lat=POT.lateral(p,H), ante=m.ante||0;
+  if(p>3 && lat>0) warnings.push(`Pisos 4+: lateral ${lat.toFixed(2)} m en TODA la altura (norma por total de pisos — error frecuente #1 en curaduría).`);
+  const roles=edgeRoles();
+  const offs=roles.map(r=> r==='frente'?ante : r==='posterior'?post : lat);
+  const poly1=clipByEdgeOffsets(footprint, offs);
+  if(!poly1){ flash(`Los retiros (posterior ${post.toFixed(1)} m · lateral ${lat.toFixed(1)} m) colapsan el lote. Reduce pisos o revisa el frente.`,'#ff5252');
+    m.potInfo={error:'Retiros colapsan el lote',post,lat,ante,warnings}; renderPotReport(m); return; }
+  // Voladizo: desde nivel 2, la fachada FRONTAL avanza máx 0,25×antejardín sobre el antejardín
+  let poly2=poly1, vmax=0;
+  if(m.vola){
+    if(ante<=0){ warnings.push('Voladizo NO permitido: el lote no tiene antejardín (error frecuente #4). Se omite.'); }
+    else { vmax=POT.voladizo(ante);
+      const offs2=roles.map(r=> r==='frente'?Math.max(0,ante-vmax) : r==='posterior'?post : lat);
+      poly2=clipByEdgeOffsets(footprint, offs2)||poly1;
+      if(p<2){ warnings.push('El voladizo aplica desde el nivel 2: con 1 piso no se construye.'); poly2=poly1; vmax=0; } }
+  }
+  // Patios laterales (huecos de piso a techo, dimensión mínima según pisos)
+  const norma=POT.patio(p); const patios=[]; let patioArea=0;
+  [['patio1','lateral1'],['patio2','lateral2']].forEach(([flag,role])=>{
+    if(!m[flag]) return;
+    let idx=-1,best=0; roles.forEach((r,i)=>{ if(r===role && edgeDir(i).len>best){best=edgeDir(i).len; idx=i;} });
+    if(idx<0){ warnings.push(`No hay arista ${ROLE_LABELS[role]} para ubicar el patio.`); return; }
+    const rect=patioRect(idx, lat, norma);
+    // validar con leve contracción hacia el centro (el patio puede tocar la línea de predio cuando lateral=0)
+    const shrink=pt=>({x:pt.x+(rect.cx-pt.x)*0.02, z:pt.z+(rect.cz-pt.z)*0.02});
+    const sp=rect.pts.map(shrink);
+    const inside=sp.every(pt=>pointInPoly(pt,poly1)) && (poly2===poly1 || sp.every(pt=>pointInPoly(pt,poly2)));
+    if(!inside){ warnings.push(`El patio de ${ROLE_LABELS[role]} (${norma.lado}×${(norma.area/norma.lado).toFixed(1)} m) no cabe tras los retiros. Se omite.`); return; }
+    patios.push(rect); patioArea+=rect.area;
+  });
+  const holed=(pts)=>{ const s=toShape(pts); patios.forEach(r=>{ const h=new THREE.Path(); h.moveTo(r.pts[0].x,-r.pts[0].z); for(let i=1;i<4;i++) h.lineTo(r.pts[i].x,-r.pts[i].z); h.closePath(); s.holes.push(h); }); return s; };
+  const g=new THREE.Group(); const selc=(selMass===m);
+  const mat=new THREE.MeshStandardMaterial({color:m.color,transparent:true,opacity:selc?0.8:0.6,roughness:0.5,metalness:0.15,emissive:selc?m.color:0x000000,emissiveIntensity:selc?0.15:0});
+  function extrude(pts,y0,y1){ const geo=new THREE.ExtrudeGeometry(holed(pts),{depth:y1-y0,bevelEnabled:false}); geo.rotateX(-Math.PI/2); geo.translate(0,m.baseZ+y0,0);
+    const mesh=new THREE.Mesh(geo,mat.clone()); mesh.userData={massId:m.id}; g.add(mesh);
+    g.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:selc?0xffffff:m.color,transparent:true,opacity:selc?0.9:0.5}))); return geo; }
+  const a1=shoelace(poly1)-patioArea, a2=shoelace(poly2)-patioArea;
+  if(vmax>0 && p>=2){ extrude(poly1,0,m.floorH); extrude(poly2,m.floorH,H); m.builtTotal=a1 + a2*(p-1); }
+  else { extrude(poly1,0,H); m.builtTotal=a1*p; }
+  m.fArea=a1;
+  // líneas de piso
+  const ring=poly2.map(q=>new THREE.Vector3(q.x,0,q.z)); ring.push(ring[0].clone());
+  for(let f=1;f<p;f++){ const y=m.baseZ+f*m.floorH; g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring.map(v=>new THREE.Vector3(v.x,y,v.z))),new THREE.LineBasicMaterial({color:m.color,transparent:true,opacity:0.22}))); }
+  gMasses.add(g); m.group=g;
+  m.potInfo={post,lat,ante,vmax,patios:patios.map(r=>({area:r.area,lado:r.lado})),normaPatio:norma,warnings};
+  renderPotReport(m);
+}
+function renderPotReport(m){
+  const el=$('pot-report'); if(!el) return; const pi=m&&m.potInfo; if(!pi){ el.innerHTML=''; return; }
+  if(pi.error){ el.innerHTML=`<span style="color:#ff8f8f">✕ ${pi.error}</span>`; return; }
+  let h=`<b style="color:var(--ok)">✓ Retiros aplicados</b> — posterior <b>${pi.post.toFixed(2)} m</b> · laterales <b>${pi.lat.toFixed(2)} m</b> · antejardín <b>${pi.ante.toFixed(1)} m</b>`;
+  if(pi.vmax>0) h+=` · voladizo <b>${pi.vmax.toFixed(2)} m</b> desde nivel 2`;
+  if(pi.patios.length) h+=` · ${pi.patios.length} patio(s) de <b>${pi.normaPatio.area} m²</b> (lado ≥ ${pi.normaPatio.lado} m)`;
+  pi.warnings.forEach(w=>h+=`<br><span style="color:#f4b942">⚠ ${w}</span>`);
+  el.innerHTML=h;
+}
+function addMassPOT(){
+  if(footprint.length<3){ flash('Sin predio: abre un lote desde el visor para aplicar normas POT.','#ff5252'); return; }
+  if(!edgeRoles().includes('frente')){ flash('Primero asigna el FRENTE del lote (clic en un borde 3D o en la lista de aristas).','#ff5252'); setMode('pickFront'); canvas.style.cursor='crosshair'; return; }
+  if($('c-vola').checked && +$('s-ante').value<=0){ flash('Voladizo sin antejardín no está permitido (0,25 × L requiere antejardín > 0). Ajusta el antejardín.','#ff5252'); return; }
+  const m={id:uid++,pot:true,floors:+$('s-floors').value,floorH:+$('s-fh').value,offset:0,baseZ:0,
+    ante:+$('s-ante').value,vola:$('c-vola').checked,patio1:$('c-patio1').checked,patio2:$('c-patio2').checked,
+    color:palette[(uid-2)%palette.length]};
+  masses.push(m); selMass=m; buildMass(m); rebuildMasses(); refresh();
+  flash('Masa normativa creada con aislamientos POT.','#6bd96b');
+}
+function topOfStack(){ let t=0; for(const m of masses) t=Math.max(t,m.baseZ+m.floors*m.floorH); return t; }
+function addMass(){ if(footprint.length<3){ flash('Sin predio: abre un lote desde el visor.','#ff5252'); return; }
+  const m={id:uid++,floors:+$('s-floors').value,floorH:+$('s-fh').value,offset:+$('s-off').value,baseZ:$('c-stack').checked?topOfStack():0,color:palette[(uid-2)%palette.length]};
+  masses.push(m); selMass=m; buildMass(m); rebuildMasses(); refresh(); }
+function rebuildMasses(){ for(const m of masses) buildMass(m); }
+function deleteMass(id){ const m=masses.find(x=>x.id===id); if(m&&m.group) gMasses.remove(m.group); masses=masses.filter(x=>x.id!==id); if(selMass&&selMass.id===id) selMass=masses[masses.length-1]||null; rebuildMasses(); refresh(); }
+function selectMass(m){ selMass=m; if(m){ $('s-floors').value=m.floors; $('s-fh').value=m.floorH; $('s-off').value=m.offset;
+    if(m.pot){ $('s-ante').value=m.ante||0; $('v-ante').textContent=(+m.ante||0).toFixed(1); $('c-vola').checked=!!m.vola; $('c-patio1').checked=!!m.patio1; $('c-patio2').checked=!!m.patio2; renderPotReport(m); }
+    syncLabels(); } rebuildMasses(); refresh(); }
+function totalBuilt(){ let a=0; for(const m of masses) a+= (m.pot && m.builtTotal!=null)? m.builtTotal : m.fArea*m.floors; return a; }
+
+/* ============================================================
+   OBJETOS BIM
+   ============================================================ */
+const gBim=new THREE.Group(); scene.add(gBim);
+function levelElev(id){ const l=levels.find(x=>x.id===id); return l?l.elev:0; }
+function buildBim(e){
+  if(e.group) gBim.remove(e.group);
+  const g=new THREE.Group();
+  const base=e.cat==='cubierta'?levelTop(e.level):levelElev(e.level);
+  const geo=new THREE.BoxGeometry(e.w,e.h,e.d);
+  const col=e.existing?0x8b97aa:(e.color||0x4d9fff);
+  const mat=new THREE.MeshStandardMaterial({color:col,transparent:true,opacity:e.existing?0.5:0.85,roughness:0.6,metalness:0.1,emissive:(selEl&&selEl.kind==='bim'&&selEl.id===e.id)?0xffffff:0x000000,emissiveIntensity:(selEl&&selEl.kind==='bim'&&selEl.id===e.id)?0.18:0});
+  const mesh=new THREE.Mesh(geo,mat); mesh.position.set(e.x, base+e.h/2, e.z); mesh.rotation.y=e.rotY||0; mesh.userData={bimId:e.id}; g.add(mesh);
+  const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:e.existing?0xaab4c4:0xbcdcff,transparent:true,opacity:e.existing?0.4:0.7}));
+  edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation);
+  if(e.existing){ edges.material=new THREE.LineDashedMaterial({color:0xaab4c4,dashSize:0.3,gapSize:0.2,transparent:true,opacity:0.6}); edges.computeLineDistances(); }
+  g.add(edges); gBim.add(g); e.group=g;
+}
+function levelTop(id){ // elevación del nivel siguiente (para cubiertas/losas)
+  const l=levels.find(x=>x.id===id); if(!l) return 0; const above=levels.filter(x=>x.elev>l.elev).sort((a,b)=>a.elev-b.elev); return above.length?above[0].elev:l.elev+3;
+}
+function rebuildBim(){ for(const e of bim) buildBim(e); applyFilter(); }
+function addBimElement(typeId, existing, bbox){
+  const t=catalogById(typeId); if(!t) return;
+  const lvl=activeLevelId(); const base=levelElev(lvl);
+  let w=t.dims.w,h=t.dims.h,d=t.dims.d,x=0,z=0;
+  if(bbox){ w=Math.max(bbox.max.x-bbox.min.x,0.1); h=Math.max(bbox.max.y-bbox.min.y,0.1); d=Math.max(bbox.max.z-bbox.min.z,0.1);
+    x=(bbox.min.x+bbox.max.x)/2; z=(bbox.min.z+bbox.max.z)/2;
+    // categorías finas conservan grosor/estándar
+    if(t.cat==='muro'||t.cat==='reja'){ d=t.dims.d; }
+    if(t.cat==='columna'){ w=t.dims.w; d=t.dims.d; }
+    if(t.cat==='sanitario'||t.cat==='puerta'||t.cat==='ventana'){ w=t.dims.w; h=t.dims.h; d=t.dims.d; }
+  } else { // sin selección: colocar cerca del centro del lote
+    x=(footprint.reduce((a,p)=>a+p.x,0)/(footprint.length||1))||0; z=(footprint.reduce((a,p)=>a+p.z,0)/(footprint.length||1))||0;
+  }
+  const e={id:bid++,typeId,cat:t.cat,label:t.label,unit:t.unit,color:t.color,existing:!!existing,level:lvl,x,z,w,h,d,rotY:0,apu:null};
+  bim.push(e); selEl={kind:'bim',id:e.id}; buildBim(e); refresh(); renderPlan();
+  flash(`${t.label} (${existing?'existente':'nuevo'}) creado en ${levelName(lvl)}.`, existing?'#8b97aa':'#4d9fff');
+  return e;
+}
+function deleteBim(id){ const e=bim.find(x=>x.id===id); if(e&&e.group) gBim.remove(e.group); bim=bim.filter(x=>x.id!==id); if(selEl&&selEl.kind==='bim'&&selEl.id===id) selEl=null; refresh(); renderPlan(); }
+function bimQty(e){ const t=catalogById(e.typeId); return t?t.q({w:e.w,h:e.h,d:e.d}):0; }
+
+/* ============================================================
+   MUROS anclados a niveles
+   ============================================================ */
+const gWalls=new THREE.Group(); scene.add(gWalls);
+function buildWalls(){ gWalls.clear();
+  for(const w of walls){ const b=levels.find(l=>l.id===w.baseId), t=levels.find(l=>l.id===w.topId); if(!b||!t) continue;
+    const base=Math.min(b.elev,t.elev), top=Math.max(b.elev,t.elev), h=top-base; if(h<=0.01) continue;
+    const dx=w.p2.x-w.p1.x, dz=w.p2.z-w.p1.z, len=Math.hypot(dx,dz); if(len<0.1) continue;
+    const geo=new THREE.BoxGeometry(len,h,w.thickness);
+    const selc=(selEl&&selEl.kind==='wall'&&selEl.id===w.id);
+    const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:w.existing?0x8b97aa:0x9c6bff,transparent:true,opacity:w.existing?0.5:0.72,roughness:0.6,metalness:0.1,emissive:selc?0xffffff:0,emissiveIntensity:selc?0.15:0}));
+    mesh.position.set((w.p1.x+w.p2.x)/2, base+h/2, (w.p1.z+w.p2.z)/2); mesh.rotation.y=Math.atan2(-dz,dx); mesh.userData={wallId:w.id}; gWalls.add(mesh);
+    const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:0xc9adff,transparent:true,opacity:0.5})); edges.position.copy(mesh.position); edges.rotation.copy(mesh.rotation); gWalls.add(edges);
+  }
+}
+function wallLen(w){ return Math.hypot(w.p2.x-w.p1.x,w.p2.z-w.p1.z); }
+
+/* ============================================================
+   NIVELES
+   ============================================================ */
+const gLevels=new THREE.Group(); scene.add(gLevels);
+function lotBBox(){ if(footprint.length){ let a=1e9,b=-1e9,c=1e9,d=-1e9; for(const p of footprint){a=Math.min(a,p.x);b=Math.max(b,p.x);c=Math.min(c,p.z);d=Math.max(d,p.z);} return {minx:a,maxx:b,minz:c,maxz:d}; } return {minx:-25,maxx:25,minz:-25,maxz:25}; }
+function makeLabel(text,color){ const cv=document.createElement('canvas'); cv.width=256; cv.height=64; const ctx=cv.getContext('2d');
+  ctx.fillStyle='rgba(10,13,18,0.65)'; ctx.fillRect(0,0,256,64); ctx.font='bold 30px monospace'; ctx.fillStyle=color; ctx.textBaseline='middle'; ctx.fillText(text,10,34);
+  const tex=new THREE.CanvasTexture(cv); tex.colorSpace=THREE.SRGBColorSpace; const s=new THREE.Sprite(new THREE.SpriteMaterial({map:tex,transparent:true,depthTest:false})); s.scale.set(22,5.5,1); return s; }
+function renderLevels(){ gLevels.clear(); const b=lotBBox(); const pad=6;
+  for(const l of levels){ const y=l.elev; const pts=[new THREE.Vector3(b.minx-pad,y,b.minz-pad),new THREE.Vector3(b.maxx+pad,y,b.minz-pad),new THREE.Vector3(b.maxx+pad,y,b.maxz+pad),new THREE.Vector3(b.minx-pad,y,b.maxz+pad),new THREE.Vector3(b.minx-pad,y,b.minz-pad)];
+    gLevels.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineDashedMaterial({color:0xf4b942,dashSize:3,gapSize:2,transparent:true,opacity:0.45})).computeLineDistances());
+    const lab=makeLabel(`${l.name}  +${l.elev.toFixed(2)}`,'#f4b942'); lab.position.set(b.maxx+pad+2,y,b.minz-pad); gLevels.add(lab); } }
+function levelName(id){ const l=levels.find(x=>x.id===id); return l?l.name:'—'; }
+function activeLevelId(){ return +$('active-level').value || (levels[0]&&levels[0].id) || 0; }
+function refreshLevelSelects(){
+  ['wall-base','wall-top'].forEach(id=>{ const s=$(id); const prev=s.value; s.innerHTML=levels.map(l=>`<option value="${l.id}">${l.name} (+${l.elev.toFixed(2)})</option>`).join(''); if(prev) s.value=prev; });
+  if(levels.length>=2){ $('wall-base').value=levels[0].id; $('wall-top').value=levels[1].id; }
+  const al=$('active-level'); const prevA=al.value; al.innerHTML=levels.map(l=>`<option value="${l.id}">${l.name} (+${l.elev.toFixed(2)})</option>`).join(''); if(prevA&&levels.find(l=>l.id==prevA)) al.value=prevA;
+  $('hud-level').textContent=levels.length?levelName(activeLevelId()):'—';
+  const list=$('level-list');
+  if(!levels.length){ list.innerHTML='<div class="empty">Sin niveles.</div>'; return; }
+  list.innerHTML=''; levels.forEach(l=>{ const c=document.createElement('div'); c.className='card'; c.style.borderLeftColor='#f4b942';
+    c.innerHTML=`<span class="del">✕</span><div class="t">${l.name}</div><div class="m">Elevación (m):</div>`;
+    const inp=document.createElement('input'); inp.type='number'; inp.step='0.1'; inp.value=l.elev; inp.style.cssText='width:100%;background:var(--bg-0);border:1px solid var(--line);color:var(--text);padding:5px;font-family:var(--mono);font-size:11px';
+    inp.onchange=()=>{ l.elev=+inp.value||0; levels.sort((a,b)=>a.elev-b.elev); renderLevels(); buildWalls(); rebuildBim(); rebuildRooms(); refreshLevelSelects(); renderPlan(); };
+    c.appendChild(inp); c.querySelector('.del').onclick=()=>{ levels=levels.filter(x=>x.id!==l.id); walls=walls.filter(w=>w.baseId!==l.id&&w.topId!==l.id); renderLevels(); buildWalls(); refreshLevelSelects(); refreshWallUI(); renderPlan(); };
+    list.appendChild(c); });
+}
+function addLevel(name,elev){ levels.push({id:lid++,name:name||('N'+(levels.length)),elev:+elev||0}); levels.sort((a,b)=>a.elev-b.elev); renderLevels(); refreshLevelSelects(); }
+
+/* ============================================================
+   MEP (redes y salidas)
+   ============================================================ */
+const gMep=new THREE.Group(); scene.add(gMep);
+function buildMep(){ gMep.clear();
+  for(const r of mep){ const col=MEP_COLORS[r.system]||0x4dd0e1; const y=levelElev(r.level)+ (r.system==='sanitaria'?0.05:1.0);
+    if(r.kind==='route' && r.pts.length>=2){
+      const v=r.pts.map(p=>new THREE.Vector3(p.x,y,p.z));
+      const curve=new THREE.CatmullRomCurve3(v,false,'catmullrom',0.0);
+      const tube=new THREE.TubeGeometry(curve,Math.max(8,v.length*6),Math.max(0.02,r.dia/2000),8,false);
+      const selc=(selEl&&selEl.kind==='mep'&&selEl.id===r.id);
+      const mesh=new THREE.Mesh(tube,new THREE.MeshStandardMaterial({color:col,roughness:0.4,metalness:0.3,emissive:selc?0xffffff:0,emissiveIntensity:selc?0.2:0})); mesh.userData={mepId:r.id}; gMep.add(mesh);
+    } else if(r.kind==='fixture'){
+      const geo=new THREE.SphereGeometry(0.35,14,14); const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:0.3})); mesh.position.set(r.pts[0].x,y,r.pts[0].z); mesh.userData={mepId:r.id}; gMep.add(mesh);
+    } else if(r.kind==='panel'){
+      const geo=new THREE.BoxGeometry(0.5,0.7,0.15); const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:col,metalness:0.4,roughness:0.5})); mesh.position.set(r.pts[0].x,levelElev(r.level)+1.4,r.pts[0].z); mesh.userData={mepId:r.id}; gMep.add(mesh);
+    }
+  }
+}
+function mepLen(r){ if(r.kind!=='route') return 0; let L=0; for(let i=1;i<r.pts.length;i++) L+=Math.hypot(r.pts[i].x-r.pts[i-1].x, r.pts[i].z-r.pts[i-1].z); return L; }
+
+/* ============================================================
+   HABITACIONES / RENTAS
+   ============================================================ */
+const gRooms=new THREE.Group(); scene.add(gRooms);
+function roomStatus(r){ // RENTADA en tiempo real: hay arrendatario y hoy dentro del periodo
+  if(!r.tenant) return 'free'; const now=new Date(); const f=r.from?new Date(r.from):null; const t=r.to?new Date(r.to):null;
+  if(f && now<f) return 'free'; if(t && now>t) return 'free'; return 'rented';
+}
+function rebuildRooms(){ gRooms.clear();
+  for(const r of rooms){ const st=roomStatus(r); const base=levelElev(r.level); const col=st==='rented'?0xff5252:0x6bd96b;
+    const h=2.6; const geo=new THREE.BoxGeometry(r.w,h,r.d);
+    const selc=(selEl&&selEl.kind==='room'&&selEl.id===r.id);
+    const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:col,transparent:true,opacity:0.28,roughness:0.8,emissive:selc?0xffffff:col,emissiveIntensity:selc?0.15:0.05}));
+    mesh.position.set(r.x, base+h/2, r.z); mesh.userData={roomId:r.id}; gRooms.add(mesh);
+    const edges=new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:col,transparent:true,opacity:0.8})); edges.position.copy(mesh.position); gRooms.add(edges);
+    const lab=makeLabel(`${r.name||'Unidad'} · ${st==='rented'?'RENTADA':'LIBRE'}`, st==='rented'?'#ff8f8f':'#6bd96b'); lab.position.set(r.x, base+h+1.4, r.z); lab.scale.set(16,4,1); gRooms.add(lab);
+  }
+}
+function roomArea(r){ return r.w*r.d; }
+
+/* ============================================================
+   NUBE DE PUNTOS + TRANSFORM
+   ============================================================ */
+const gCloud=new THREE.Group(); scene.add(gCloud);
+const plyLoader=new PLYLoader(); const pcdLoader=new PCDLoader();
+let cloud={ pos:null, col:null, count:0, mode:'points', obj:null, range:[0,0] };
+function loadCloudFile(file){ const name=file.name.toLowerCase(); const reader=new FileReader(); $('cloud-info').textContent='Procesando '+file.name+'…';
+  try{ if(name.endsWith('.ply')){ reader.onload=()=>{ try{ ingestGeometry(plyLoader.parse(reader.result)); }catch(e){ $('cloud-info').textContent='Error PLY: '+e.message; } }; reader.readAsArrayBuffer(file); }
+    else if(name.endsWith('.pcd')){ reader.onload=()=>{ try{ const o=pcdLoader.parse(reader.result,''); ingestGeometry(o.geometry); }catch(e){ $('cloud-info').textContent='Error PCD: '+e.message; } }; reader.readAsArrayBuffer(file); }
+    else { reader.onload=()=>ingestAscii(reader.result); reader.readAsText(file); }
+  }catch(e){ $('cloud-info').textContent='Error: '+e.message; } }
+function ingestGeometry(geom){ const pos=geom.getAttribute('position'); const col=geom.getAttribute('color'); const xyz=[], rgb=[];
+  for(let i=0;i<pos.count;i++){ xyz.push(pos.getX(i),pos.getY(i),pos.getZ(i)); if(col) rgb.push(col.getX(i),col.getY(i),col.getZ(i)); } buildCloud(xyz, col?rgb:null, 1); }
+function ingestAscii(text){ const xyz=[], rgb=[]; let hasC=false, big=false;
+  for(const line of text.split(/\r?\n/)){ const n=line.trim().split(/[\s,;]+/).map(Number);
+    if(n.length>=3 && n.slice(0,3).every(v=>!isNaN(v))){ xyz.push(n[0],n[1],n[2]); if(n.length>=6 && n.slice(3,6).every(v=>!isNaN(v))){ rgb.push(n[3],n[4],n[5]); hasC=true; if(n[3]>1||n[4]>1||n[5]>1) big=true; } } }
+  if(!xyz.length){ $('cloud-info').textContent='No se hallaron puntos (X Y Z por línea).'; return; } buildCloud(xyz, hasC?rgb:null, big?255:1); }
+function buildCloud(xyz, rgb, cmax){ const zup=$('c-zup').checked; const N=xyz.length/3;
+  const pos=new Float32Array(N*3); const col=rgb?new Float32Array(N*3):null; let sx=0,sz=0,minY=Infinity,maxY=-Infinity; const tmp=new Float32Array(N*3);
+  for(let i=0;i<N;i++){ const x=xyz[i*3],y=xyz[i*3+1],z=xyz[i*3+2]; let wx,wy,wz; if(zup){wx=x;wy=z;wz=-y;} else {wx=x;wy=y;wz=z;} tmp[i*3]=wx;tmp[i*3+1]=wy;tmp[i*3+2]=wz; sx+=wx; sz+=wz; if(wy<minY)minY=wy; if(wy>maxY)maxY=wy; }
+  const cx=sx/N, cz=sz/N;
+  for(let i=0;i<N;i++){ pos[i*3]=tmp[i*3]-cx; pos[i*3+1]=tmp[i*3+1]-minY; pos[i*3+2]=tmp[i*3+2]-cz; if(col){ col[i*3]=rgb[i*3]/cmax; col[i*3+1]=rgb[i*3+1]/cmax; col[i*3+2]=rgb[i*3+2]/cmax; } }
+  cloud={ pos, col, count:N, mode:cloud.mode, obj:null, range:[0,maxY-minY] }; buildCloudView(cloud.mode);
+  $('cloud-info').textContent=`${fmt(N)} puntos · alto ${(maxY-minY).toFixed(1)} m · usa el gizmo para posicionar`; }
+function buildCloudView(mode){ if(!cloud.pos) return; cloud.mode=mode;
+  // conservar la transform del grupo
+  gCloud.clear();
+  const geom=new THREE.BufferGeometry(); geom.setAttribute('position', new THREE.BufferAttribute(cloud.pos,3)); if(cloud.col) geom.setAttribute('color', new THREE.BufferAttribute(cloud.col,3));
+  if(mode==='points'){ const mat=new THREE.PointsMaterial({ size:+$('s-psize').value, sizeAttenuation:true, vertexColors:!!cloud.col, color:cloud.col?0xffffff:0x6bd96b }); cloud.obj=new THREE.Points(geom,mat); }
+  else { const N=cloud.count; const flat=new Float64Array(N*2); for(let i=0;i<N;i++){ flat[i*2]=cloud.pos[i*3]; flat[i*2+1]=cloud.pos[i*3+2]; } const del=new Delaunator(flat); geom.setIndex(Array.from(del.triangles)); geom.computeVertexNormals();
+    const mat=new THREE.MeshStandardMaterial({ vertexColors:!!cloud.col, color:cloud.col?0xffffff:0x8fbf8f, roughness:0.9, metalness:0, side:THREE.DoubleSide }); cloud.obj=new THREE.Mesh(geom,mat); }
+  gCloud.add(cloud.obj); }
+function syncCloudSlidersFromGroup(){ $('s-cscale').value=gCloud.scale.x.toFixed(2); $('v-cscale').textContent=gCloud.scale.x.toFixed(2); const deg=Math.round(gCloud.rotation.y*180/Math.PI); $('s-crot').value=deg; $('v-crot').textContent=deg; }
+function fitCloudToLot(){ if(!cloud.pos) return; const c=footprint.length?{x:footprint.reduce((a,p)=>a+p.x,0)/footprint.length,z:footprint.reduce((a,p)=>a+p.z,0)/footprint.length}:{x:0,z:0}; gCloud.position.set(c.x,0,c.z); flash('Nube centrada en el lote.','#6bd96b'); }
+
+/* ============================================================
+   INTERACCIÓN 3D: orbit / draw wall / box-select / pipe / room
+   ============================================================ */
+const ray=new THREE.Raycaster(), mouse=new THREE.Vector2();
+let mode='orbit'; // orbit|drawWall|box|pipe|room|fixture|panel
+let wallP1=null, draftMarker=null; let roomP1=null; let pipePts=[];
+function setMode(m){ mode=m; canvas.style.cursor=(m==='orbit')?'':'crosshair';
+  document.querySelectorAll('#btn-boxsel,#btn-draw-wall,#btn-mep-route,#btn-room-draw,#btn-mep-fixture,#btn-mep-panel,#btn-pick-front').forEach(b=>b.classList.remove('on','primary'));
+  if(m==='box')$('btn-boxsel').classList.add('on'); if(m==='drawWall')$('btn-draw-wall').classList.add('primary'); if(m==='pipe')$('btn-mep-route').classList.add('primary'); if(m==='room')$('btn-room-draw').classList.add('primary'); if(m==='fixture')$('btn-mep-fixture').classList.add('on'); if(m==='panel')$('btn-mep-panel').classList.add('on'); if(m==='pickFront')$('btn-pick-front').classList.add('primary');
+}
+function nearestEdge(p){ let best=1e9, idx=-1;
+  for(let i=0;i<footprint.length;i++){ const a=footprint[i], b=footprint[(i+1)%footprint.length];
+    const vx=b.x-a.x, vz=b.z-a.z; const L2=vx*vx+vz*vz||1; let t=((p.x-a.x)*vx+(p.z-a.z)*vz)/L2; t=Math.max(0,Math.min(1,t));
+    const qx=a.x+vx*t, qz=a.z+vz*t; const d=Math.hypot(p.x-qx,p.z-qz);
+    if(d<best){ best=d; idx=i; } }
+  return {idx,dist:best};
+}
+function setFront(idx){ frenteIdx=idx;
+  edgeRolesOverride=autoRolesFrom(idx); // la deducción es solo la SUGERENCIA inicial: cada lado queda editable
+  drawEdgeRoles(); renderEdgeRoleList(); updateFrontInfo();
+  masses.filter(m=>m.pot).forEach(m=>buildMass(m)); refresh();
+  flash('Frente marcado. Revisa y ajusta cada lado manualmente en la lista.','#6bd96b');
+}
+function updateFrontInfo(){
+  const roles=edgeRoles(); const nf=roles.filter(r=>r==='frente').length;
+  if(!nf){ $('front-info').innerHTML='Sin frente definido. Clic en un borde 3D o asigna cada lado manualmente abajo.'; return; }
+  $('front-info').innerHTML=`Lados asignados: <b style="color:#6bd96b">${nf} frente(s)</b> · <b style="color:#ff8f8f">${roles.filter(r=>r==='posterior').length} posterior(es)</b> · <b style="color:#4dd0e1">${roles.filter(r=>r==='lateral1'||r==='lateral2').length} lateral(es)</b>. Cada arista es editable abajo.`;
+}
+function renderEdgeRoleList(){
+  const el=$('edge-role-list'); if(!el) return;
+  if(footprint.length<3){ el.innerHTML='<div class="hint">Sin predio: abre un lote desde el visor.</div>'; return; }
+  const roles=edgeRoles();
+  el.innerHTML=footprint.map((a,i)=>{
+    const col='#'+ROLE_COLORS[roles[i]].toString(16).padStart(6,'0');
+    return `<div style="display:flex;gap:6px;align-items:center;margin:3px 0">
+      <span style="width:92px;font-size:10px;color:var(--text-dim)">Arista ${i+1} · ${edgeDir(i).len.toFixed(1)} m</span>
+      <select data-ei="${i}" class="edge-role" style="flex:1;background:var(--bg-0);border:1px solid ${col};border-left:3px solid ${col};color:var(--text);font-family:var(--mono);font-size:10px;padding:4px">
+        ${['frente','posterior','lateral1','lateral2'].map(r=>`<option value="${r}" ${roles[i]===r?'selected':''}>${ROLE_LABELS[r]}</option>`).join('')}
+      </select></div>`; }).join('');
+  el.querySelectorAll('.edge-role').forEach(s=>s.onchange=()=>{
+    const cur=edgeRoles(); cur[+s.dataset.ei]=s.value; edgeRolesOverride=cur;
+    if(s.value==='frente') frenteIdx=+s.dataset.ei;
+    if(!cur.includes('frente')) frenteIdx=null;
+    drawEdgeRoles(); renderEdgeRoleList(); updateFrontInfo();
+    masses.filter(m=>m.pot).forEach(m=>buildMass(m)); refresh();
+  });
+}
+function groundPoint(e){ const r=canvas.getBoundingClientRect(); mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1; ray.setFromCamera(mouse,camera); const hit=ray.intersectObject(ground)[0]; return hit?{x:hit.point.x,z:hit.point.z}:null; }
+
+// box-select sobre la nube
+let boxStart=null, selBBox=null;
+canvas.addEventListener('pointerdown',(e)=>{ if(mode==='box' && cloud.pos){ boxStart={x:e.clientX,y:e.clientY}; const b=$('boxsel'); const r=canvas.getBoundingClientRect(); b.style.left=(e.clientX-r.left)+'px'; b.style.top=(e.clientY-r.top)+'px'; b.style.width='0px'; b.style.height='0px'; b.style.display='block'; controls.enabled=false; } });
+canvas.addEventListener('pointermove',(e)=>{ if(mode==='box' && boxStart){ const r=canvas.getBoundingClientRect(); const x1=Math.min(boxStart.x,e.clientX),y1=Math.min(boxStart.y,e.clientY),x2=Math.max(boxStart.x,e.clientX),y2=Math.max(boxStart.y,e.clientY); const b=$('boxsel'); b.style.left=(x1-r.left)+'px'; b.style.top=(y1-r.top)+'px'; b.style.width=(x2-x1)+'px'; b.style.height=(y2-y1)+'px'; } });
+canvas.addEventListener('pointerup',(e)=>{ if(mode==='box' && boxStart){ const rect=canvas.getBoundingClientRect();
+    const x1=Math.min(boxStart.x,e.clientX)-rect.left, y1=Math.min(boxStart.y,e.clientY)-rect.top, x2=Math.max(boxStart.x,e.clientX)-rect.left, y2=Math.max(boxStart.y,e.clientY)-rect.top;
+    $('boxsel').style.display='none'; controls.enabled=true; boxStart=null;
+    if(Math.abs(x2-x1)<5||Math.abs(y2-y1)<5){ selBBox=null; $('bim-info').textContent='Selección muy pequeña. Arrastra un rectángulo mayor.'; return; }
+    // proyectar puntos de la nube a pantalla y quedarse con los del rectángulo
+    const m=new THREE.Matrix4().copy(gCloud.matrixWorld); const v=new THREE.Vector3(); const min=new THREE.Vector3(Infinity,Infinity,Infinity), max=new THREE.Vector3(-Infinity,-Infinity,-Infinity); let cnt=0;
+    const step=Math.max(1,Math.floor(cloud.count/200000));
+    for(let i=0;i<cloud.count;i+=step){ v.set(cloud.pos[i*3],cloud.pos[i*3+1],cloud.pos[i*3+2]).applyMatrix4(m); const p=v.clone().project(camera); const sx=(p.x*0.5+0.5)*rect.width, sy=(-p.y*0.5+0.5)*rect.height;
+      if(sx>=x1&&sx<=x2&&sy>=y1&&sy<=y2 && p.z<1){ min.min(v); max.max(v); cnt++; } }
+    if(cnt<3){ selBBox=null; $('bim-info').textContent='No se encontraron puntos de la nube en la caja. Reencuadra o baja el submuestreo.'; return; }
+    selBBox={min:{x:min.x,y:min.y,z:min.z},max:{x:max.x,y:max.y,z:max.z}};
+    $('bim-info').textContent=`Selección: ${cnt} puntos · bbox ${(max.x-min.x).toFixed(2)}×${(max.y-min.y).toFixed(2)}×${(max.z-min.z).toFixed(2)} m. Pulsa "Crear objeto".`;
+  } });
+
+canvas.addEventListener('click',(e)=>{
+  if(mode==='pickFront'){
+    if(footprint.length<3){ flash('Sin predio para elegir frente.','#ff5252'); cancelDraw(); return; }
+    const p=groundPoint(e); if(!p) return;
+    const {idx,dist}=nearestEdge(p);
+    if(idx<0 || dist>25){ flash('Clic más cerca de un borde del lote.','#f4b942'); return; }
+    setFront(idx); setMode('orbit'); return;
+  }
+  if(mode==='drawWall'){ const p=groundPoint(e); if(!p) return;
+    if(!wallP1){ wallP1=p; draftMarker=new THREE.Mesh(new THREE.SphereGeometry(0.8,12,12),new THREE.MeshBasicMaterial({color:0x9c6bff})); draftMarker.position.set(p.x,levelElev(+$('wall-base').value),p.z); gWalls.add(draftMarker); $('wall-hint').textContent='Clic el punto FINAL del muro…'; }
+    else { walls.push({id:wid++,baseId:+$('wall-base').value,topId:+$('wall-top').value,p1:wallP1,p2:p,thickness:+$('s-wt').value,existing:$('st-exist').checked}); buildWalls(); refreshWallUI(); renderPlan(); cancelDraw(); } return; }
+  if(mode==='room'){ const p=groundPoint(e); if(!p) return;
+    if(!roomP1){ roomP1=p; draftMarker=new THREE.Mesh(new THREE.SphereGeometry(0.8,12,12),new THREE.MeshBasicMaterial({color:0xff5252})); draftMarker.position.set(p.x,levelElev(activeLevelId()),p.z); gRooms.add(draftMarker); flash('Clic la esquina OPUESTA de la habitación…','#ff5252'); }
+    else { createRoomRect(roomP1,p); cancelDraw(); } return; }
+  if(mode==='pipe'){ const p=groundPoint(e); if(!p) return; pipePts.push(p); flash(`Punto ${pipePts.length} · doble-clic o Enter para terminar (Esc cancela)`,'#4dd0e1'); return; }
+  if(mode==='fixture'||mode==='panel'){ const p=groundPoint(e); if(!p) return; const sys=$('mep-system').value; mep.push({id:mid++,kind:mode,system:sys,level:activeLevelId(),dia:+$('s-dia').value,pts:[p],existing:$('st-exist').checked,apu:null}); buildMep(); refreshMepUI(); renderPlan(); flash((mode==='fixture'?'Salida':'Tablero')+' agregado.','#4dd0e1'); setMode('orbit'); return; }
+  // orbit: seleccionar
+  pick3D(e);
+});
+canvas.addEventListener('dblclick',()=>{ if(mode==='pipe') finishPipe(); });
+window.addEventListener('keydown',(e)=>{ if(e.key==='Escape') cancelDraw(); if(e.key==='Enter'&&mode==='pipe') finishPipe(); if(e.key==='Delete'&&selEl) deleteSelected(); });
+function finishPipe(){ if(pipePts.length>=2){ const sys=$('mep-system').value; mep.push({id:mid++,kind:'route',system:sys,level:activeLevelId(),dia:+$('s-dia').value,pts:pipePts.slice(),existing:$('st-exist').checked,apu:null}); buildMep(); refreshMepUI(); renderPlan(); flash(`Red ${MEP_LABEL[sys]} · ${mepLen(mep[mep.length-1]).toFixed(2)} m`, '#4dd0e1'); } cancelDraw(); }
+function cancelDraw(){ mode='orbit'; wallP1=null; roomP1=null; pipePts=[]; if(draftMarker){ draftMarker.parent&&draftMarker.parent.remove(draftMarker); draftMarker=null; } canvas.style.cursor=''; setMode('orbit'); $('wall-hint').textContent='Elige base/superior y traza la directriz.'; }
+function createRoomRect(a,b){ const x=(a.x+b.x)/2, z=(a.z+b.z)/2, w=Math.abs(b.x-a.x)||3, d=Math.abs(b.z-a.z)||3;
+  const r={id:rid++,name:'Unidad '+(rooms.length+1),level:activeLevelId(),x,z,w,d,tenant:'',from:'',to:'',canon:0,docs:[]}; rooms.push(r); selEl={kind:'room',id:r.id}; rebuildRooms(); refresh(); renderPlan(); openRoom(r.id); }
+
+function pick3D(e){ const r=canvas.getBoundingClientRect(); mouse.x=((e.clientX-r.left)/r.width)*2-1; mouse.y=-((e.clientY-r.top)/r.height)*2+1; ray.setFromCamera(mouse,camera);
+  const targets=[]; gMasses.traverse(o=>{if(o.userData&&o.userData.massId)targets.push(o);}); gBim.traverse(o=>{if(o.userData&&o.userData.bimId)targets.push(o);}); gWalls.traverse(o=>{if(o.userData&&o.userData.wallId)targets.push(o);}); gMep.traverse(o=>{if(o.userData&&o.userData.mepId)targets.push(o);}); gRooms.traverse(o=>{if(o.userData&&o.userData.roomId)targets.push(o);});
+  const hit=ray.intersectObjects(targets,false)[0];
+  if(!hit){ selEl=null; selMass=null; rebuildAllSel(); showProps(); return; }
+  const u=hit.object.userData;
+  if(u.massId){ const m=masses.find(x=>x.id===u.massId); selEl=null; selectMass(m); }
+  else if(u.bimId){ selEl={kind:'bim',id:u.bimId}; selMass=null; rebuildAllSel(); showProps(); }
+  else if(u.wallId){ selEl={kind:'wall',id:u.wallId}; selMass=null; rebuildAllSel(); showProps(); }
+  else if(u.mepId){ selEl={kind:'mep',id:u.mepId}; selMass=null; rebuildAllSel(); showProps(); }
+  else if(u.roomId){ selEl={kind:'room',id:u.roomId}; selMass=null; rebuildAllSel(); openRoom(u.roomId); }
+}
+function rebuildAllSel(){ rebuildBim(); buildWalls(); buildMep(); rebuildRooms(); rebuildMasses(); }
+function deleteSelected(){ if(!selEl) return; const {kind,id}=selEl; if(kind==='bim')deleteBim(id); else if(kind==='wall'){walls=walls.filter(w=>w.id!==id);buildWalls();refreshWallUI();} else if(kind==='mep'){mep=mep.filter(m=>m.id!==id);buildMep();refreshMepUI();} else if(kind==='room'){rooms=rooms.filter(r=>r.id!==id);rebuildRooms();} selEl=null; refresh(); renderPlan(); showProps(); }
+
+/* ============================================================
+   PANEL DE PROPIEDADES
+   ============================================================ */
+function showProps(){ const el=$('props');
+  if(!selEl){ el.innerHTML='<div class="empty">Selecciona un elemento en 3D o en planta.</div>'; return; }
+  if(selEl.kind==='bim'){ const e=bim.find(x=>x.id===selEl.id); if(!e){el.innerHTML='';return;} const t=catalogById(e.typeId);
+    el.innerHTML=`<div class="card" style="border-left-color:#${(e.existing?0x8b97aa:e.color).toString(16).padStart(6,'0')}">
+      <div class="t">${e.label}</div><div class="m">${CAT_LABEL[e.cat]} · ${levelName(e.level)}</div></div>
+      <div class="row2" style="margin-top:8px">
+        <div class="ctl"><label>Ancho (m)</label><input class="inp" type="number" step="0.05" id="p-w" value="${e.w.toFixed(2)}"></div>
+        <div class="ctl"><label>Alto (m)</label><input class="inp" type="number" step="0.05" id="p-h" value="${e.h.toFixed(2)}"></div>
+        <div class="ctl"><label>Fondo (m)</label><input class="inp" type="number" step="0.05" id="p-d" value="${e.d.toFixed(2)}"></div>
+        <div class="ctl"><label>Rotación Y (°)</label><input class="inp" type="number" step="5" id="p-r" value="${Math.round((e.rotY||0)*180/Math.PI)}"></div>
+      </div>
+      <div class="row2" style="margin-top:6px">
+        <label class="toggle"><input type="checkbox" id="p-exist" ${e.existing?'checked':''}><span>Existente</span></label>
+        <div class="ctl"><label>Cantidad (${e.unit})</label><input class="inp" value="${bimQty(e).toFixed(2)}" disabled></div>
+      </div>
+      <div class="ctl" style="margin-top:6px"><label>APU asignado</label><input class="inp" id="p-apu" value="${e.apu?apuLabel(e.apu):'— sin APU —'}" disabled></div>
+      <div class="row2" style="margin-top:8px">
+        <button class="btn sm" id="p-assign"><span class="ic">$</span> Asignar APU</button>
+        <button class="btn sm danger" id="p-del"><span class="ic">✕</span> Eliminar</button>
+      </div>`;
+    const upd=()=>{ e.w=+$('p-w').value||e.w; e.h=+$('p-h').value||e.h; e.d=+$('p-d').value||e.d; e.rotY=(+$('p-r').value||0)*Math.PI/180; e.existing=$('p-exist').checked; buildBim(e); refresh(); renderPlan(); showProps(); };
+    ['p-w','p-h','p-d','p-r','p-exist'].forEach(id=>$(id).onchange=upd);
+    $('p-assign').onclick=()=>openApuSelect('bim',e.id); $('p-del').onclick=()=>deleteBim(e.id);
+  } else if(selEl.kind==='wall'){ const w=walls.find(x=>x.id===selEl.id); if(!w)return;
+    el.innerHTML=`<div class="card" style="border-left-color:#9c6bff"><div class="t">Muro anclado</div><div class="m">Largo <b>${wallLen(w).toFixed(2)}</b> m · esp <b>${w.thickness}</b> m</div></div>
+      <label class="toggle" style="margin-top:8px"><input type="checkbox" id="p-exist" ${w.existing?'checked':''}><span>Existente</span></label>
+      <div class="row2" style="margin-top:8px"><button class="btn sm" id="p-assign"><span class="ic">$</span> Asignar APU</button><button class="btn sm danger" id="p-del"><span class="ic">✕</span> Eliminar</button></div>`;
+    $('p-exist').onchange=()=>{ w.existing=$('p-exist').checked; buildWalls(); }; $('p-assign').onclick=()=>openApuSelect('wall',w.id); $('p-del').onclick=()=>{ walls=walls.filter(x=>x.id!==w.id); selEl=null; buildWalls(); refreshWallUI(); showProps(); refresh(); };
+  } else if(selEl.kind==='mep'){ const r=mep.find(x=>x.id===selEl.id); if(!r)return;
+    el.innerHTML=`<div class="card" style="border-left-color:#${(MEP_COLORS[r.system]||0x4dd0e1).toString(16).padStart(6,'0')}"><div class="t">${MEP_LABEL[r.system]} · ${r.kind==='route'?'red':r.kind}</div><div class="m">${r.kind==='route'?('Long <b>'+mepLen(r).toFixed(2)+'</b> m · Ø '+r.dia+' mm'):'Ø '+r.dia+' mm · '+levelName(r.level)}</div></div>
+      <div class="row2" style="margin-top:8px"><button class="btn sm" id="p-assign"><span class="ic">$</span> Asignar APU</button><button class="btn sm danger" id="p-del"><span class="ic">✕</span> Eliminar</button></div>`;
+    $('p-assign').onclick=()=>openApuSelect('mep',r.id); $('p-del').onclick=()=>{ mep=mep.filter(x=>x.id!==r.id); selEl=null; buildMep(); refreshMepUI(); showProps(); refresh(); };
+  }
+}
+function apuLabel(code){ const a=apus.find(x=>x.codigo===code); return a?`${a.codigo} · ${a.descripcion}`:code; }
+
+/* ============================================================
+   FILTRO existentes/nuevos
+   ============================================================ */
+function applyFilter(){ const f=$('filter-state').value;
+  gBim.children.forEach(g=>{ const e=bim.find(x=>x.group===g); if(!e)return; g.visible=(f==='all')||(f==='new'&&!e.existing)||(f==='exist'&&e.existing); });
+  gWalls.visible=true; // muros mixtos; se filtran por material, se dejan visibles
+}
+
+/* ============================================================
+   REFRESH GLOBAL
+   ============================================================ */
+function syncLabels(){ $('v-floors').textContent=$('s-floors').value; $('v-fh').textContent=(+$('s-fh').value).toFixed(1); $('v-off').textContent=$('s-off').value; }
+function refresh(){
+  // masas
+  $('m-count').textContent=masses.length; const h=topOfStack(); $('m-h').textContent=h.toFixed(1)+' m';
+  const built=Math.round(totalBuilt());
+  const max=Math.round(maxBuild); $('mtr-txt').textContent=`${fmt(built)} / ${max?fmt(max):'—'} m²`;
+  const pct=max?Math.min(100,built/max*100):0; const bar=$('mtr-bar'); bar.style.width=pct+'%'; bar.classList.toggle('over',max&&built>max);
+  $('mtr-note').textContent=max?(built>max?`Excede ${fmt(built-max)} m² el máximo POT`:`Disponible ${fmt(max-built)} m² (índice ${((icb||0)+(ica||0)).toFixed(2)})`):'Predio sin ICB/ICA.';
+  // métricas 5D
+  $('m-bim').textContent=bim.length; let mtot=0; mep.forEach(r=>mtot+=mepLen(r)); $('m-mep').textContent=mtot.toFixed(0)+' m'; $('m-rooms').textContent=rooms.length;
+  $('m-cost').textContent=money(computeBudget().total);
+  // listas
+  renderMassList(); renderBimList(); refreshMepUI(); renderRoomLists(); renderRentMini();
+}
+function renderMassList(){ const list=$('mass-list'); if(!masses.length){ list.innerHTML='<div class="empty">Sin masas.</div>'; return; } list.innerHTML='';
+  masses.forEach((m,i)=>{ const c=document.createElement('div'); c.className='card'+(selMass===m?' sel':''); c.style.borderLeftColor='#'+m.color.toString(16).padStart(6,'0');
+    c.innerHTML=`<span class="del">✕</span>${m.pot?'<span class="badge new">POT</span>':''}<div class="t">Masa ${i+1}${m.pot?' · normativa':''}</div><div class="m"><b>${m.floors}</b> pisos × <b>${m.floorH.toFixed(1)}</b> = <b>${(m.floors*m.floorH).toFixed(1)}</b> m · huella <b>${fmt(m.fArea)}</b> m²${m.pot&&m.potInfo&&!m.potInfo.error?` · post ${m.potInfo.post.toFixed(1)} / lat ${m.potInfo.lat.toFixed(1)} m`:''}</div>`;
+    c.querySelector('.del').onclick=(e)=>{e.stopPropagation();deleteMass(m.id);}; c.onclick=()=>selectMass(m); list.appendChild(c); }); }
+function renderBimList(){ const list=$('bim-list'); if(!bim.length){ list.innerHTML='<div class="empty">Sin objetos BIM.</div>'; return; } list.innerHTML='';
+  bim.forEach(e=>{ const c=document.createElement('div'); c.className='card'+(selEl&&selEl.kind==='bim'&&selEl.id===e.id?' sel':''); c.style.borderLeftColor='#'+(e.existing?0x8b97aa:e.color).toString(16).padStart(6,'0');
+    c.innerHTML=`<span class="del">✕</span><span class="badge ${e.existing?'exist':'new'}">${e.existing?'EXIST':'NUEVO'}</span><div class="t">${e.label}</div><div class="m">${levelName(e.level)} · ${bimQty(e).toFixed(2)} ${e.unit}${e.apu?' · APU '+e.apu:''}</div>`;
+    c.querySelector('.del').onclick=(ev)=>{ev.stopPropagation();deleteBim(e.id);}; c.onclick=()=>{ selEl={kind:'bim',id:e.id}; rebuildAllSel(); showProps(); refresh(); }; list.appendChild(c); }); }
+function refreshWallUI(){ const list=$('wall-list'); if(!walls.length){ list.innerHTML=''; return; } list.innerHTML='';
+  walls.forEach((w,i)=>{ const b=levels.find(l=>l.id===w.baseId), t=levels.find(l=>l.id===w.topId); const c=document.createElement('div'); c.className='card'; c.style.borderLeftColor='#9c6bff';
+    c.innerHTML=`<span class="del">✕</span><span class="badge ${w.existing?'exist':'new'}">${w.existing?'EXIST':'NUEVO'}</span><div class="t">Muro ${i+1}</div><div class="m">${b?b.name:'?'} → ${t?t.name:'?'} · largo <b>${wallLen(w).toFixed(2)}</b> m</div>`;
+    c.querySelector('.del').onclick=()=>{ walls=walls.filter(x=>x.id!==w.id); buildWalls(); refreshWallUI(); renderPlan(); }; c.onclick=()=>{ selEl={kind:'wall',id:w.id}; rebuildAllSel(); showProps(); }; list.appendChild(c); }); }
+function refreshMepUI(){ const list=$('mep-list'); if(!mep.length){ list.innerHTML='<div class="empty">Sin redes MEP.</div>'; return; } list.innerHTML='';
+  mep.forEach(r=>{ const c=document.createElement('div'); c.className='card'; c.style.borderLeftColor='#'+(MEP_COLORS[r.system]||0x4dd0e1).toString(16).padStart(6,'0');
+    const desc=r.kind==='route'?`${mepLen(r).toFixed(2)} m · Ø${r.dia}`:(r.kind==='fixture'?'Salida':'Tablero');
+    c.innerHTML=`<span class="del">✕</span><div class="t">${MEP_LABEL[r.system]}</div><div class="m">${desc} · ${levelName(r.level)}${r.apu?' · APU '+r.apu:''}</div>`;
+    c.querySelector('.del').onclick=()=>{ mep=mep.filter(x=>x.id!==r.id); buildMep(); refreshMepUI(); renderPlan(); refresh(); }; c.onclick=()=>{ selEl={kind:'mep',id:r.id}; rebuildAllSel(); showProps(); }; list.appendChild(c); }); }
+function renderRoomLists(){ const l=$('room-list-left'); if(!rooms.length){ l.innerHTML='<div class="empty">Sin habitaciones.</div>'; return; } l.innerHTML='';
+  rooms.forEach(r=>{ const st=roomStatus(r); const c=document.createElement('div'); c.className='card'; c.style.borderLeftColor=st==='rented'?'#ff5252':'#6bd96b';
+    c.innerHTML=`<span class="del">✕</span><div class="t">${r.name}</div><div class="m">${levelName(r.level)} · ${fmt(roomArea(r))} m² · <span class="pill ${st==='rented'?'rent':'free'}">${st==='rented'?'RENTADA':'LIBRE'}</span></div>`;
+    c.querySelector('.del').onclick=()=>{ rooms=rooms.filter(x=>x.id!==r.id); rebuildRooms(); renderRoomLists(); renderRentMini(); refresh(); renderPlan(); }; c.onclick=()=>openRoom(r.id); l.appendChild(c); }); }
+function renderRentMini(){ let rented=0,free=0,income=0; rooms.forEach(r=>{ if(roomStatus(r)==='rented'){rented++;income+=r.canon||0;}else free++; });
+  $('r-rented').textContent=rented; $('r-free').textContent=free; $('r-income').textContent=money(income);
+  const el=$('rent-mini'); if(!rooms.length){ el.innerHTML='<div class="empty">Sin habitaciones.</div>'; return; }
+  el.innerHTML=rooms.map(r=>{ const st=roomStatus(r); return `<div class="card" style="border-left-color:${st==='rented'?'#ff5252':'#6bd96b'};cursor:default"><div class="t" style="font-size:11px">${r.name}</div><div class="m">${st==='rented'?r.tenant+' · '+money(r.canon):'Disponible'}</div></div>`; }).join(''); }
+
+/* ============================================================
+   PLANTA 2D (SVG) — sincronizada con el modelo
+   ============================================================ */
+let planT={scale:1,ox:0,oy:0}; let planTool='select'; let planP1=null; let planPipe=[];
+function worldToPlan(x,z){ return {X:planT.ox+x*planT.scale, Y:planT.oy+z*planT.scale}; }
+function planToWorld(X,Y){ return {x:(X-planT.ox)/planT.scale, z:(Y-planT.oy)/planT.scale}; }
+function computePlanTransform(){ const svg=$('plan-svg'); const W=svg.clientWidth||800,H=svg.clientHeight||600;
+  let minx=-20,maxx=20,minz=-20,maxz=20;
+  if(footprint.length){ minx=1e9;maxx=-1e9;minz=1e9;maxz=-1e9; for(const p of footprint){minx=Math.min(minx,p.x);maxx=Math.max(maxx,p.x);minz=Math.min(minz,p.z);maxz=Math.max(maxz,p.z);} }
+  // incluir elementos del nivel
+  const lvl=activeLevelId(); const consider=[...bim.filter(e=>e.level===lvl),...rooms.filter(r=>r.level===lvl)];
+  consider.forEach(e=>{ minx=Math.min(minx,e.x-(e.w||1)); maxx=Math.max(maxx,e.x+(e.w||1)); minz=Math.min(minz,e.z-(e.d||1)); maxz=Math.max(maxz,e.z+(e.d||1)); });
+  const pad=6; minx-=pad;maxx+=pad;minz-=pad;maxz+=pad; const spanX=maxx-minx||40, spanZ=maxz-minz||40;
+  const s=Math.min(W/spanX,H/spanZ)*0.92; planT.scale=s; planT.ox=(W-spanX*s)/2 - minx*s; planT.oy=(H-spanZ*s)/2 - minz*s;
+}
+function renderPlan(){ const svg=$('plan-svg'); if(!$('plan-host').classList.contains('on')) return; computePlanTransform();
+  const lvl=activeLevelId(); const f=$('filter-state').value; let s='';
+  // grid
+  const W=svg.clientWidth,H=svg.clientHeight; svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  s+=`<rect x="0" y="0" width="${W}" height="${H}" fill="#0d1117"/>`;
+  // footprint
+  if(footprint.length>2){ const d=footprint.map((p,i)=>{const q=worldToPlan(p.x,p.z);return (i?'L':'M')+q.X.toFixed(1)+','+q.Y.toFixed(1);}).join(' ')+' Z'; s+=`<path d="${d}" fill="rgba(58,110,165,.15)" stroke="#6fb3ff" stroke-width="1.5"/>`; }
+  // muros del nivel (base o top = nivel)
+  walls.filter(w=>w.baseId===lvl||w.topId===lvl).forEach(w=>{ const a=worldToPlan(w.p1.x,w.p1.z), b=worldToPlan(w.p2.x,w.p2.z); s+=`<line x1="${a.X}" y1="${a.Y}" x2="${b.X}" y2="${b.Y}" stroke="#9c6bff" stroke-width="${Math.max(2,w.thickness*planT.scale)}" stroke-linecap="round"/>`; });
+  // objetos BIM
+  bim.filter(e=>e.level===lvl).forEach(e=>{ if(f==='new'&&e.existing)return; if(f==='exist'&&!e.existing)return; const c=worldToPlan(e.x,e.z); const w=e.w*planT.scale, d=e.d*planT.scale;
+    const fill=e.existing?'#3a3f47':'#1d3a5f'; const stroke=e.existing?'#8b97aa':'#4d9fff'; const dash=e.existing?'stroke-dasharray="5,3"':''; const selc=selEl&&selEl.kind==='bim'&&selEl.id===e.id;
+    s+=`<g transform="translate(${c.X},${c.Y}) rotate(${(e.rotY||0)*180/Math.PI})" class="pel" data-kind="bim" data-id="${e.id}" style="cursor:pointer">
+      <rect x="${-w/2}" y="${-d/2}" width="${w}" height="${d}" fill="${fill}" stroke="${selc?'#f4b942':stroke}" stroke-width="${selc?2.5:1.5}" ${dash}/>
+      <text x="0" y="0" font-size="9" fill="#cdd6e3" text-anchor="middle" dominant-baseline="middle" style="pointer-events:none">${e.label.split(' ')[0]}</text></g>`; });
+  // habitaciones
+  rooms.filter(r=>r.level===lvl).forEach(r=>{ const st=roomStatus(r); const c=worldToPlan(r.x,r.z); const w=r.w*planT.scale,d=r.d*planT.scale; const col=st==='rented'?'#ff5252':'#6bd96b'; const selc=selEl&&selEl.kind==='room'&&selEl.id===r.id;
+    s+=`<g class="pel" data-kind="room" data-id="${r.id}" style="cursor:pointer">
+      <rect x="${c.X-w/2}" y="${c.Y-d/2}" width="${w}" height="${d}" fill="${col}22" stroke="${selc?'#f4b942':col}" stroke-width="${selc?2.5:1.5}"/>
+      <text x="${c.X}" y="${c.Y-4}" font-size="10" fill="${col}" text-anchor="middle" style="pointer-events:none">${r.name}</text>
+      <text x="${c.X}" y="${c.Y+9}" font-size="8" fill="#aeb8c6" text-anchor="middle" style="pointer-events:none">${st==='rented'?'RENTADA · '+money(r.canon):'LIBRE'}</text></g>`; });
+  // MEP del nivel
+  mep.filter(r=>r.level===lvl).forEach(r=>{ const col='#'+(MEP_COLORS[r.system]||0x4dd0e1).toString(16).padStart(6,'0');
+    if(r.kind==='route'&&r.pts.length>=2){ const d=r.pts.map((p,i)=>{const q=worldToPlan(p.x,p.z);return(i?'L':'M')+q.X.toFixed(1)+','+q.Y.toFixed(1);}).join(' '); s+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="2" class="pel" data-kind="mep" data-id="${r.id}" style="cursor:pointer"/>`; }
+    else { const q=worldToPlan(r.pts[0].x,r.pts[0].z); s+=`<circle cx="${q.X}" cy="${q.Y}" r="5" fill="${col}" class="pel" data-kind="mep" data-id="${r.id}" style="cursor:pointer"/>`; } });
+  // draft pipe
+  if(planTool==='pipe'&&planPipe.length){ const d=planPipe.map((p,i)=>{const q=worldToPlan(p.x,p.z);return(i?'L':'M')+q.X+','+q.Y;}).join(' '); s+=`<path d="${d}" fill="none" stroke="#4dd0e1" stroke-width="2" stroke-dasharray="4,3"/>`; }
+  // título nivel
+  s+=`<text x="14" y="${H-16}" font-size="13" fill="#f4b942" font-family="monospace">PLANTA · ${levelName(lvl)} (+${(levels.find(l=>l.id===lvl)||{elev:0}).elev.toFixed(2)} m)</text>`;
+  s+=`<text x="14" y="${H-34}" font-size="9" fill="#6b7688" font-family="monospace">Escala 1m = ${planT.scale.toFixed(1)}px · lo dibujado aquí aparece en el 3D</text>`;
+  svg.innerHTML=s;
+  svg.querySelectorAll('.pel').forEach(g=>{ g.addEventListener('mousedown',(ev)=>{ if(planTool!=='select')return; ev.stopPropagation(); const kind=g.dataset.kind, id=+g.dataset.id; selEl={kind,id}; if(kind==='room'){ rebuildAllSel(); renderPlan(); openRoom(id);} else { rebuildAllSel(); showProps(); renderPlan(); } startPlanDrag(kind,id,ev); }); });
+}
+// planta: click en vacío para dibujar
+$('plan-svg').addEventListener('mousedown',(ev)=>{ if(ev.target.classList.contains('pel'))return; const rect=$('plan-svg').getBoundingClientRect(); const X=ev.clientX-rect.left, Y=ev.clientY-rect.top; const wp=planToWorld(X,Y);
+  if(planTool==='select'){ selEl=null; rebuildAllSel(); showProps(); renderPlan(); return; }
+  if(planTool==='pipe'){ planPipe.push(wp); renderPlan(); return; }
+  if(planTool==='wall'||planTool==='room'){ if(!planP1){ planP1=wp; flash('Clic el punto final…','#4dd0e1'); } else { if(planTool==='wall'){ walls.push({id:wid++,baseId:activeLevelId(),topId:topLevelId(),p1:planP1,p2:wp,thickness:0.2,existing:$('st-exist').checked}); buildWalls(); refreshWallUI(); } else { createRoomRect(planP1,wp); } planP1=null; renderPlan(); refresh(); } return; }
+  if(planTool==='column'){ addBimAtPlan('columna-concreto',wp); return; }
+  if(planTool==='object'){ addBimAtPlan($('bim-type').value,wp); return; }
+});
+$('plan-svg').addEventListener('dblclick',()=>{ if(planTool==='pipe'&&planPipe.length>=2){ mep.push({id:mid++,kind:'route',system:$('mep-system').value,level:activeLevelId(),dia:+$('s-dia').value,pts:planPipe.slice(),existing:$('st-exist').checked,apu:null}); planPipe=[]; buildMep(); refreshMepUI(); refresh(); renderPlan(); } });
+function topLevelId(){ const cur=levels.find(l=>l.id===activeLevelId()); if(!cur)return activeLevelId(); const above=levels.filter(l=>l.elev>cur.elev).sort((a,b)=>a.elev-b.elev); return above.length?above[0].id:activeLevelId(); }
+function addBimAtPlan(typeId,wp){ const t=catalogById(typeId); const lvl=activeLevelId(); const e={id:bid++,typeId,cat:t.cat,label:t.label,unit:t.unit,color:t.color,existing:$('st-exist').checked,level:lvl,x:wp.x,z:wp.z,w:t.dims.w,h:t.dims.h,d:t.dims.d,rotY:0,apu:null}; bim.push(e); selEl={kind:'bim',id:e.id}; buildBim(e); refresh(); renderPlan(); }
+// drag en planta
+let planDrag=null;
+function startPlanDrag(kind,id,ev){ if(planTool!=='select')return; const rect=$('plan-svg').getBoundingClientRect(); planDrag={kind,id,x0:ev.clientX,y0:ev.clientY}; }
+window.addEventListener('mousemove',(ev)=>{ if(!planDrag)return; const dx=(ev.clientX-planDrag.x0)/planT.scale, dz=(ev.clientY-planDrag.y0)/planT.scale; planDrag.x0=ev.clientX; planDrag.y0=ev.clientY;
+  if(planDrag.kind==='bim'){ const e=bim.find(x=>x.id===planDrag.id); if(e){ e.x+=dx; e.z+=dz; buildBim(e); } }
+  else if(planDrag.kind==='room'){ const r=rooms.find(x=>x.id===planDrag.id); if(r){ r.x+=dx; r.z+=dz; rebuildRooms(); } }
+  renderPlan(); });
+window.addEventListener('mouseup',()=>{ if(planDrag){ planDrag=null; refresh(); } });
+document.querySelectorAll('.ptool').forEach(b=>b.onclick=()=>{ const t=b.dataset.ptool; if(t==='fit'){ computePlanTransform(); renderPlan(); return; } document.querySelectorAll('.ptool').forEach(x=>x.classList.remove('on')); b.classList.add('on'); planTool=t; planP1=null; planPipe=[]; });
+
+/* ============================================================
+   BUDGET / APU (repo 1)
+   ============================================================ */
+let apus=[]; // {codigo,descripcion,unidad,valor}
+function renderApuTable(){ const tb=$('apu-tbody'); $('apu-count').textContent=apus.length+' APUs';
+  if(!apus.length){ tb.innerHTML='<tr><td colspan="4" class="empty">Sube un Excel o carga los APU demo.</td></tr>'; return; }
+  tb.innerHTML=apus.map(a=>`<tr><td style="color:var(--accent-3)">${a.codigo}</td><td>${a.descripcion}</td><td>${a.unidad}</td><td style="text-align:right">${money(a.valor)}</td></tr>`).join(''); }
+$('excel-input').onchange=(e)=>{ const file=e.target.files[0]; if(!file)return; const reader=new FileReader();
+  reader.onload=(ev)=>{ try{ const wb=XLSX.read(ev.target.result,{type:'binary'}); const ws=wb.Sheets[wb.SheetNames[0]]; const json=XLSX.utils.sheet_to_json(ws,{header:1}); const arr=[];
+    for(let i=1;i<json.length;i++){ const r=json[i]; if(!r||!r[0])continue; arr.push({codigo:String(r[0]),descripcion:String(r[1]||'—'),unidad:String(r[2]||'un'),valor:parseFloat(r[3])||0}); }
+    apus=arr; renderApuTable(); refresh(); flash(`Cargados ${arr.length} APUs.`,'#6bd96b'); }catch(err){ flash('Error leyendo Excel: '+err.message,'#ff5252'); } };
+  reader.readAsBinaryString(file); e.target.value=''; };
+$('btn-apu-demo').onclick=()=>{ apus=[
+  {codigo:'MUR-01',descripcion:'Muro mampostería bloque #5',unidad:'m2',valor:92000},
+  {codigo:'MUR-02',descripcion:'Muro concreto reforzado e=0.20',unidad:'m2',valor:158000},
+  {codigo:'MUR-03',descripcion:'Muro drywall superboard',unidad:'m2',valor:74000},
+  {codigo:'COL-01',descripcion:'Columna concreto 3000psi',unidad:'ml',valor:255000},
+  {codigo:'COL-02',descripcion:'Columna metálica IPE',unidad:'ml',valor:298000},
+  {codigo:'VIG-01',descripcion:'Viga concreto reforzado',unidad:'ml',valor:240000},
+  {codigo:'LOS-01',descripcion:'Losa aligerada entrepiso',unidad:'m2',valor:210000},
+  {codigo:'CUB-01',descripcion:'Cubierta metálica teja sándwich',unidad:'m2',valor:108000},
+  {codigo:'CUB-02',descripcion:'Cubierta teja de barro',unidad:'m2',valor:95000},
+  {codigo:'PUE-01',descripcion:'Puerta entamborada + marco',unidad:'un',valor:420000},
+  {codigo:'VEN-01',descripcion:'Ventana aluminio + vidrio',unidad:'un',valor:380000},
+  {codigo:'SAN-01',descripcion:'Aparato sanitario inodoro',unidad:'un',valor:315000},
+  {codigo:'SAN-02',descripcion:'Lavamanos + grifería',unidad:'un',valor:230000},
+  {codigo:'SAN-03',descripcion:'Lavaplatos mesón',unidad:'un',valor:290000},
+  {codigo:'HID-01',descripcion:'Red hidráulica PF+UAD Ø1/2"',unidad:'ml',valor:38000},
+  {codigo:'HID-02',descripcion:'Red agua caliente CPVC',unidad:'ml',valor:52000},
+  {codigo:'SAN-R1',descripcion:'Red sanitaria PVC-S Ø4"',unidad:'ml',valor:62000},
+  {codigo:'VEN-R1',descripcion:'Ventilación sanitaria PVC Ø2"',unidad:'ml',valor:34000},
+  {codigo:'ELE-01',descripcion:'Canalización eléctrica + cableado',unidad:'ml',valor:29000},
+  {codigo:'ELE-P1',descripcion:'Tablero de distribución 12 ctos',unidad:'un',valor:680000},
+  {codigo:'ELE-S1',descripcion:'Salida eléctrica (toma/luminaria)',unidad:'un',valor:95000},
+  {codigo:'GAS-01',descripcion:'Red de gas Ø1/2"',unidad:'ml',valor:44000},
+  {codigo:'REJ-01',descripcion:'Reja enrollable metálica',unidad:'m2',valor:225000},
+]; renderApuTable(); refresh(); flash('APU demo cargados (23 ítems).','#6bd96b'); };
+
+// asignar APU
+let apuTarget=null; // {kind,id}
+function openApuSelect(kind,id){ if(!apus.length){ flash('Primero carga la base APU (Base APU → demo o Excel).','#ff5252'); return; } apuTarget={kind,id}; $('apu-search').value=''; renderApuSelList(''); $('apu-sel-target').textContent=`${kind} #${id}`; openModal('modal-apu-sel'); }
+function renderApuSelList(term){ term=(term||'').toLowerCase(); const list=apus.filter(a=>a.codigo.toLowerCase().includes(term)||a.descripcion.toLowerCase().includes(term));
+  $('apu-sel-list').innerHTML=list.map(a=>`<tr class="click" data-code="${a.codigo}"><td style="color:var(--accent-3)">${a.codigo}</td><td>${a.descripcion}</td><td>${a.unidad}</td><td style="text-align:right;color:var(--ok)">${money(a.valor)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Sin coincidencias</td></tr>';
+  $('apu-sel-list').querySelectorAll('tr.click').forEach(tr=>tr.onclick=()=>assignApu(tr.dataset.code)); }
+$('apu-search').oninput=(e)=>renderApuSelList(e.target.value);
+function assignApu(code){ if(!apuTarget)return; const {kind,id}=apuTarget;
+  if(kind==='bim'){ const e=bim.find(x=>x.id===id); if(e)e.apu=code; } else if(kind==='wall'){ const w=walls.find(x=>x.id===id); if(w)w.apu=code; } else if(kind==='mep'){ const r=mep.find(x=>x.id===id); if(r)r.apu=code; }
+  closeModal('modal-apu-sel'); flash('APU '+code+' asignado.','#6bd96b'); refresh(); showProps(); }
+function autoApuCode(item){ // heurística por categoría/sistema si no hay APU asignado
+  if(item.__t==='bim'){ const map={muro:'MUR-01',columna:'COL-01',viga:'VIG-01',losa:'LOS-01',cubierta:'CUB-01',puerta:'PUE-01',ventana:'VEN-01',sanitario:'SAN-01',reja:'REJ-01'}; return map[item.cat]; }
+  if(item.__t==='wall') return 'MUR-01';
+  if(item.__t==='mep'){ const map={hidraulica:'HID-01',caliente:'HID-02',sanitaria:'SAN-R1',ventilacion:'VEN-R1',electrica:item.kind==='panel'?'ELE-P1':(item.kind==='fixture'?'ELE-S1':'ELE-01'),gas:'GAS-01'}; return map[item.system]; }
+}
+function computeBudget(){ const rows=[]; let total=0;
+  function push(name,estado,code,qty,unit){ const a=apus.find(x=>x.codigo===code); const vu=a?a.valor:0; const sub=vu*qty; total+=sub; rows.push({name,estado,code:code||'—',qty,unit,vu,sub}); }
+  bim.forEach(e=>{ const code=e.apu||autoApuCode({__t:'bim',cat:e.cat}); push(e.label,e.existing?'Existente':'Nuevo',code,bimQty(e),e.unit); });
+  walls.forEach((w,i)=>{ const code=w.apu||'MUR-01'; const a=catalogById('muro-concreto'); push('Muro '+(i+1),w.existing?'Existente':'Nuevo',code,wallLen(w)* ((levels.find(l=>l.id===w.topId)?.elev||3)-(levels.find(l=>l.id===w.baseId)?.elev||0)),'m2'); });
+  mep.forEach(r=>{ const code=r.apu||autoApuCode({__t:'mep',system:r.system,kind:r.kind}); const qty=r.kind==='route'?mepLen(r):1; const unit=r.kind==='route'?'ml':'un'; push(MEP_LABEL[r.system]+' '+(r.kind==='route'?'red':r.kind),r.existing?'Existente':'Nuevo',code,qty,unit); });
+  return {rows,total};
+}
+function openBudget(){ const {rows,total}=computeBudget(); $('budget-total').textContent=money(total);
+  $('budget-tbody').innerHTML=rows.length?rows.map(r=>`<tr><td>${r.name}</td><td><span class="pill ${r.estado==='Existente'?'free':'rent'}" style="${r.estado==='Existente'?'':'background:rgba(77,159,255,.18);color:#4d9fff'}">${r.estado}</span></td><td>${r.code}</td><td style="text-align:right">${r.qty.toFixed(2)} ${r.unit}</td><td style="text-align:right">${money(r.vu)}</td><td style="text-align:right;color:var(--ok)">${money(r.sub)}</td><td></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Sin elementos. Crea objetos BIM / MEP y carga la base APU.</td></tr>';
+  openModal('modal-budget'); }
+$('btn-budget-csv').onclick=()=>{ const {rows,total}=computeBudget(); let csv='Elemento,Estado,APU,Cantidad,Unidad,ValorUnit,Subtotal\n'; rows.forEach(r=>csv+=`"${r.name}",${r.estado},${r.code},${r.qty.toFixed(2)},${r.unit},${r.vu},${r.sub}\n`); csv+=`,,,,,,TOTAL,${total}\n`; download(csv,(lot&&lot.npn||'presupuesto')+'_5D.csv','text/csv'); };
+
+/* ============================================================
+   RENTAS / FACILITY MANAGEMENT
+   ============================================================ */
+let roomEditId=null;
+function openRoom(id){ const r=rooms.find(x=>x.id===id); if(!r)return; roomEditId=id; selEl={kind:'room',id}; rebuildAllSel(); showProps();
+  $('room-title').textContent=r.name||'Habitación'; $('room-name').value=r.name||''; $('room-uso').value=r.uso||'habitacion'; $('room-tenant').value=r.tenant||''; $('room-canon').value=r.canon||''; $('room-from').value=r.from||''; $('room-to').value=r.to||'';
+  renderRoomDocs(r); openModal('modal-room'); }
+function renderRoomDocs(r){ const el=$('room-doclist'); if(!r.docs||!r.docs.length){ el.innerHTML='<div class="hint">Sin documentos adjuntos.</div>'; return; }
+  el.innerHTML=r.docs.map((d,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--bg-2);border:1px solid var(--line);padding:5px 8px"><a href="${d.data}" download="${d.name}" style="color:var(--accent-3);font-size:10px;text-decoration:none">📎 ${d.name}</a><span data-di="${i}" class="rmdoc" style="cursor:pointer;color:var(--accent-2)">✕</span></div>`).join('');
+  el.querySelectorAll('.rmdoc').forEach(x=>x.onclick=()=>{ r.docs.splice(+x.dataset.di,1); renderRoomDocs(r); }); }
+$('room-docs').onchange=(e)=>{ const r=rooms.find(x=>x.id===roomEditId); if(!r)return; const files=[...e.target.files]; r.docs=r.docs||[];
+  let pending=files.length; if(!pending)return; files.forEach(f=>{ const rd=new FileReader(); rd.onload=()=>{ r.docs.push({name:f.name,data:rd.result}); if(--pending===0){ renderRoomDocs(r); flash('Documento(s) adjuntado(s).','#6bd96b'); } }; rd.readAsDataURL(f); }); e.target.value=''; };
+$('room-save').onclick=()=>{ const r=rooms.find(x=>x.id===roomEditId); if(!r)return; r.name=$('room-name').value||r.name; r.uso=$('room-uso').value; r.tenant=$('room-tenant').value.trim(); r.canon=+$('room-canon').value||0; r.from=$('room-from').value; r.to=$('room-to').value;
+  rebuildRooms(); renderRoomLists(); renderRentMini(); refresh(); renderPlan(); closeModal('modal-room'); flash('Contrato guardado.','#6bd96b'); };
+$('room-delete').onclick=()=>{ rooms=rooms.filter(x=>x.id!==roomEditId); if(selEl&&selEl.kind==='room')selEl=null; rebuildRooms(); renderRoomLists(); renderRentMini(); refresh(); renderPlan(); closeModal('modal-room'); };
+function openRentas(){ let rented=0,income=0,potential=0; rooms.forEach(r=>{ potential+=r.canon||0; if(roomStatus(r)==='rented'){rented++;income+=r.canon||0;} });
+  const free=rooms.length-rented; $('rd-total').textContent=rooms.length; $('rd-rented').textContent=rented; $('rd-free').textContent=free; $('rd-occ').textContent=(rooms.length?Math.round(rented/rooms.length*100):0)+'%'; $('rd-income').textContent=money(income); $('rd-potential').textContent=money(potential);
+  $('rentas-tbody').innerHTML=rooms.length?rooms.map(r=>{ const st=roomStatus(r); const per=(r.from||r.to)?`${r.from||'—'} → ${r.to||'—'}`:'—'; return `<tr class="click" data-id="${r.id}"><td>${r.name}</td><td>${levelName(r.level)}</td><td>${fmt(roomArea(r))} m²</td><td>${r.tenant||'—'}</td><td style="font-size:10px">${per}</td><td>${r.canon?money(r.canon):'—'}</td><td><span class="pill ${st==='rented'?'rent':'free'}">${st==='rented'?'RENTADA':'LIBRE'}</span></td><td>${(r.docs&&r.docs.length)||0} 📎</td><td>✎</td></tr>`; }).join(''):'<tr><td colspan="9" class="empty">Sin habitaciones. Dibuja unidades con "Dibujar habitación".</td></tr>';
+  $('rentas-tbody').querySelectorAll('tr.click').forEach(tr=>tr.onclick=()=>{ closeModal('modal-rentas'); openRoom(+tr.dataset.id); });
+  openModal('modal-rentas'); }
+
+/* ============================================================
+   MODALES helpers
+   ============================================================ */
+function openModal(id){ $(id).classList.add('on'); } function closeModal(id){ $(id).classList.remove('on'); }
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closeModal(b.dataset.close));
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('mousedown',(e)=>{ if(e.target===m)closeModal(m.id); }));
+
+/* ============================================================
+   EXPORTS: JSON / IFC / LÁMINA (reusa lógica de masas.html)
+   ============================================================ */
+function flash(msg,color){ const t=$('flash'); t.style.borderColor=color||'#9c6bff'; t.textContent=msg; t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(()=>t.style.display='none',3600); }
+function download(text,name,mime){ const b=new Blob([text],{type:mime||'text/plain'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000); }
+
+const STUDIES_KEY='cali_massing_studies';
+function studyKey(){ return (lot && (lot.npn||lot.numepred||lot.direpred)) || 'sin_predio'; }
+function collectStudy(){ return { predio: lot||null, savedAt:new Date().toISOString(),
+  projectType, funding, potCfg:{frenteIdx, roles:edgeRolesOverride},
+  resumen:{ area_lote:lotArea, icb, ica, masas:masses.length, area_construida:Math.round(totalBuilt()), objetos_bim:bim.length, redes_mep:mep.length, habitaciones:rooms.length, presupuesto:Math.round(computeBudget().total) },
+  levels: levels.map(l=>({id:l.id,name:l.name,elev:l.elev})),
+  walls: walls.map(w=>({id:w.id,baseId:w.baseId,topId:w.topId,p1:w.p1,p2:w.p2,thickness:w.thickness,existing:w.existing,apu:w.apu})),
+  masses: masses.map(m=>({id:m.id,floors:m.floors,floorH:m.floorH,offset:m.offset,baseZ:m.baseZ,color:m.color,pot:!!m.pot,ante:m.ante||0,vola:!!m.vola,patio1:!!m.patio1,patio2:!!m.patio2})),
+  bim: bim.map(e=>({id:e.id,typeId:e.typeId,existing:e.existing,level:e.level,x:e.x,z:e.z,w:e.w,h:e.h,d:e.d,rotY:e.rotY,apu:e.apu,fromClaude:e.fromClaude||false,optionName:e.optionName||null,roomId:e.roomId||null})),
+  mep: mep.map(r=>({id:r.id,kind:r.kind,system:r.system,level:r.level,dia:r.dia,pts:r.pts,existing:r.existing,apu:r.apu})),
+  rooms: rooms.map(r=>({id:r.id,name:r.name,uso:r.uso||'habitacion',level:r.level,x:r.x,z:r.z,w:r.w,d:r.d,tenant:r.tenant,from:r.from,to:r.to,canon:r.canon,docs:r.docs})),
+  apus, cloudXform:{p:[gCloud.position.x,gCloud.position.y,gCloud.position.z],s:gCloud.scale.x,r:gCloud.rotation.y} }; }
+function saveStudy(){ if(!lot){ flash('Abre un predio desde el visor para guardar.','#ff5252'); return; }
+  let all={}; try{ all=JSON.parse(localStorage.getItem(STUDIES_KEY)||'{}'); }catch(e){}
+  all[studyKey()]=collectStudy();
+  try{ localStorage.setItem(STUDIES_KEY, JSON.stringify(all)); flash('Proyecto guardado ✓ (disponible en el dashboard del visor).','#6bd96b'); }
+  catch(e){ flash('No se pudo guardar (¿documentos muy grandes?): '+e.message,'#ff5252'); } }
+function restoreStudy(st){
+  if(st.potCfg && footprint.length>2){
+    if(st.potCfg.roles && st.potCfg.roles.length===footprint.length) edgeRolesOverride=st.potCfg.roles.slice();
+    else if(st.potCfg.frenteIdx!=null) edgeRolesOverride=autoRolesFrom(st.potCfg.frenteIdx);
+    if(st.potCfg.frenteIdx!=null) frenteIdx=st.potCfg.frenteIdx;
+    drawEdgeRoles(); renderEdgeRoleList(); updateFrontInfo();
+  }
+  if(st.projectType) applyProjectType(st.projectType, true);
+  if(st.funding) funding=st.funding;
+  levels=[]; lid=1; for(const l of (st.levels||[])){ levels.push({id:l.id,name:l.name,elev:l.elev}); lid=Math.max(lid,l.id+1); } levels.sort((a,b)=>a.elev-b.elev); renderLevels(); refreshLevelSelects();
+  walls=[]; wid=1; for(const w of (st.walls||[])){ walls.push({...w}); wid=Math.max(wid,w.id+1); } buildWalls(); refreshWallUI();
+  masses=[]; uid=1; selMass=null; for(const m of (st.masses||[])){ const mm={...m}; masses.push(mm); uid=Math.max(uid,m.id+1); buildMass(mm); }
+  bim=[]; bid=1; for(const e of (st.bim||[])){ const t=catalogById(e.typeId)||CATALOG[0]; const ee={...e,cat:t.cat,label:t.label,unit:t.unit,color:t.color}; bim.push(ee); bid=Math.max(bid,e.id+1); buildBim(ee); }
+  mep=[]; mid=1; for(const r of (st.mep||[])){ mep.push({...r}); mid=Math.max(mid,r.id+1); } buildMep();
+  rooms=[]; rid=1; for(const r of (st.rooms||[])){ rooms.push({...r,docs:r.docs||[]}); rid=Math.max(rid,r.id+1); } rebuildRooms();
+  if(st.apus&&st.apus.length){ apus=st.apus; renderApuTable(); }
+  if(st.cloudXform){ /* la nube no persiste (archivo local); se conserva la transform si se reimporta */ }
+  selMass=masses[masses.length-1]||null; rebuildMasses(); refresh(); }
+
+/* ---- IFC (muros + niveles + objetos como proxy) ---- */
+function ifcGuid(){ const c='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_$'; let s=''; for(let i=0;i<22;i++) s+=c[Math.floor(Math.random()*64)]; return s; }
+function buildIFCString(){ const lines=[]; let id=0; const add=(def)=>{ const r='#'+(++id); lines.push(r+'='+def+';'); return r; };
+  const f=(n)=>{ let s=(+n).toFixed(6).replace(/0+$/,'').replace(/\.$/,'.'); if(!/[.eE]/.test(s)) s+='.'; return s; };
+  const CP=(x,y,z)=>add(`IFCCARTESIANPOINT((${f(x)},${f(y)},${f(z)}))`); const CP2=(x,y)=>add(`IFCCARTESIANPOINT((${f(x)},${f(y)}))`);
+  const DIR=(x,y,z)=>add(`IFCDIRECTION((${f(x)},${f(y)},${f(z)}))`); const AX3=(p,z,x)=>add(`IFCAXIS2PLACEMENT3D(${p},${z||'$'},${x||'$'})`);
+  const person=add(`IFCPERSON($,$,'',$,$,$,$,$)`); const org=add(`IFCORGANIZATION($,'LifeCity',$,$,$)`); const pao=add(`IFCPERSONANDORGANIZATION(${person},${org},$)`); const app=add(`IFCAPPLICATION(${org},'1.0','LifeCity BIM 5D','LC-BIM')`); const owner=add(`IFCOWNERHISTORY(${pao},${app},$,.ADDED.,$,$,$,${Math.floor(Date.now()/1000)})`);
+  const lenU=add(`IFCSIUNIT(*,.LENGTHUNIT.,$,.METRE.)`); const areaU=add(`IFCSIUNIT(*,.AREAUNIT.,$,.SQUARE_METRE.)`); const volU=add(`IFCSIUNIT(*,.VOLUMEUNIT.,$,.CUBIC_METRE.)`); const angU=add(`IFCSIUNIT(*,.PLANEANGLEUNIT.,$,.RADIAN.)`); const units=add(`IFCUNITASSIGNMENT((${lenU},${areaU},${volU},${angU}))`);
+  const wcs=AX3(CP(0,0,0)); const ctx=add(`IFCGEOMETRICREPRESENTATIONCONTEXT($,'Model',3,1.0E-5,${wcs},$)`); const sub=add(`IFCGEOMETRICREPRESENTATIONSUBCONTEXT('Body','Model',*,*,*,*,${ctx},$,.MODEL_VIEW.,$)`);
+  const project=add(`IFCPROJECT('${ifcGuid()}',${owner},'LifeCity BIM 5D',$,$,$,$,(${ctx}),${units})`);
+  const sitePl=add(`IFCLOCALPLACEMENT($,${AX3(CP(0,0,0))})`); const site=add(`IFCSITE('${ifcGuid()}',${owner},'Sitio',$,$,${sitePl},$,$,.ELEMENT.,$,$,$,$,$)`);
+  const bldgPl=add(`IFCLOCALPLACEMENT(${sitePl},${AX3(CP(0,0,0))})`); const bname=((lot&&lot.direpred)||'Edificio').replace(/'/g,"''"); const building=add(`IFCBUILDING('${ifcGuid()}',${owner},'${bname}',$,$,${bldgPl},$,$,.ELEMENT.,$,$,$)`);
+  const storeyMap={}; const storeyIds=levels.map(l=>{ const pl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(0,0,l.elev))})`); const st=add(`IFCBUILDINGSTOREY('${ifcGuid()}',${owner},'${l.name.replace(/'/g,"''")}',$,$,${pl},$,$,.ELEMENT.,${f(l.elev)})`); storeyMap[l.id]=st; return st; });
+  add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${project},(${site}))`); add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${site},(${building}))`); if(storeyIds.length) add(`IFCRELAGGREGATES('${ifcGuid()}',${owner},$,$,${building},(${storeyIds.join(',')}))`);
+  const byStorey={};
+  walls.forEach((w,i)=>{ const b=levels.find(l=>l.id===w.baseId), t=levels.find(l=>l.id===w.topId); if(!b||!t) return; const base=Math.min(b.elev,t.elev), top=Math.max(b.elev,t.elev), h=top-base; if(h<=0.001) return; const dx=w.p2.x-w.p1.x, dz=w.p2.z-w.p1.z, len=Math.hypot(dx,dz); if(len<0.05) return; const midx=(w.p1.x+w.p2.x)/2, midz=(w.p1.z+w.p2.z)/2, ang=Math.atan2(-dz,dx);
+    const prof=add(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${add(`IFCAXIS2PLACEMENT2D(${CP2(0,0)},$)`)},${f(len)},${f(w.thickness)})`); const solid=add(`IFCEXTRUDEDAREASOLID(${prof},${AX3(CP(0,0,0))},${DIR(0,0,1)},${f(h)})`); const shape=add(`IFCSHAPEREPRESENTATION(${sub},'Body','SweptSolid',(${solid}))`); const pds=add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${shape}))`); const wpl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(midx,-midz,base),DIR(0,0,1),DIR(Math.cos(ang),Math.sin(ang),0))})`); const wall=add(`IFCWALL('${ifcGuid()}',${owner},'Muro ${i+1}',$,$,${wpl},${pds},$)`); (byStorey[storeyMap[b.id]]=byStorey[storeyMap[b.id]]||[]).push(wall); });
+  // objetos BIM como IfcBuildingElementProxy (caja)
+  bim.forEach((e,i)=>{ const base=levelElev(e.level); const prof=add(`IFCRECTANGLEPROFILEDEF(.AREA.,$,${add(`IFCAXIS2PLACEMENT2D(${CP2(0,0)},$)`)},${f(e.w)},${f(e.d)})`); const solid=add(`IFCEXTRUDEDAREASOLID(${prof},${AX3(CP(0,0,0))},${DIR(0,0,1)},${f(e.h)})`); const shape=add(`IFCSHAPEREPRESENTATION(${sub},'Body','SweptSolid',(${solid}))`); const pds=add(`IFCPRODUCTDEFINITIONSHAPE($,$,(${shape}))`); const ang=e.rotY||0; const pl=add(`IFCLOCALPLACEMENT(${bldgPl},${AX3(CP(e.x,-e.z,base),DIR(0,0,1),DIR(Math.cos(ang),Math.sin(ang),0))})`); const px=add(`IFCBUILDINGELEMENTPROXY('${ifcGuid()}',${owner},'${e.label.replace(/'/g,"''")} ${i+1}',$,$,${pl},${pds},$,$)`); const stId=storeyMap[e.level]||storeyIds[0]; if(stId)(byStorey[stId]=byStorey[stId]||[]).push(px); });
+  for(const st in byStorey) add(`IFCRELCONTAINEDINSPATIALSTRUCTURE('${ifcGuid()}',${owner},$,$,(${byStorey[st].join(',')}),${st})`);
+  const header=`ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('ViewDefinition [CoordinationView]'),'2;1');\nFILE_NAME('${(lot&&lot.npn)||'lifecity'}.ifc','${new Date().toISOString()}',(''),(''),'LifeCity BIM 5D','LifeCity','');\nFILE_SCHEMA(('IFC2X3'));\nENDSEC;\nDATA;\n`;
+  return header+lines.join('\n')+'\nENDSEC;\nEND-ISO-10303-21;\n'; }
+function exportIFC(){ if(!levels.length){ flash('Agrega al menos un nivel para exportar IFC.','#ff5252'); return; } download(buildIFCString(),((lot&&lot.npn)||'lifecity')+'.ifc','application/x-step'); flash(`IFC exportado: ${walls.length} muro(s), ${bim.length} objeto(s), ${levels.length} nivel(es).`,'#6bd96b'); }
+
+/* ---- lámina ---- */
+function modelBounds(){ const box=new THREE.Box3(); [gMasses,gWalls,gBim,gRooms,gLot].forEach(g=>{ if(g.children.length) box.expandByObject(g); }); if(box.isEmpty()) box.set(new THREE.Vector3(-20,0,-20),new THREE.Vector3(20,20,20)); return box; }
+function captureView(setup){ const oldPos=camera.position.clone(), oldTgt=controls.target.clone(); setup(); camera.updateProjectionMatrix(); renderer.render(scene,camera); const url=canvas.toDataURL('image/png'); camera.position.copy(oldPos); controls.target.copy(oldTgt); camera.lookAt(oldTgt); camera.updateProjectionMatrix(); return url; }
+function captureViews(){ const box=modelBounds(); const c=box.getCenter(new THREE.Vector3()); const size=box.getSize(new THREE.Vector3()); const rad=Math.max(size.x,size.z,20), H=Math.max(size.y,10);
+  const iso=captureView(()=>{ const d=rad*1.6+H*0.6; camera.position.set(c.x+d,c.y+d*0.85+H*0.4,c.z+d); controls.target.copy(c); camera.lookAt(c); });
+  const top=captureView(()=>{ camera.position.set(c.x,c.y+rad*3+H+50,c.z+0.001); controls.target.copy(c); camera.lookAt(c); });
+  const frontC=new THREE.Vector3(c.x,c.y+H*0.45,c.z); const front=captureView(()=>{ camera.position.set(frontC.x,frontC.y,frontC.z+rad*2.2+H); controls.target.copy(frontC); camera.lookAt(frontC); });
+  return {iso,top,front}; }
+function exportSheet(){ const imgs=captureViews(); const p=lot||{}; const built=Math.round(totalBuilt()); const idx=(lotArea?built/lotArea:0).toFixed(2); const maxp=Math.round(maxBuild); const bud=computeBudget().total;
+  const rowsB=bim.map((e,i)=>`<tr><td>${i+1}</td><td>${e.label}</td><td>${e.existing?'Exist.':'Nuevo'}</td><td>${levelName(e.level)}</td><td>${bimQty(e).toFixed(2)} ${e.unit}</td></tr>`).join('')||'<tr><td colspan=5 style="text-align:center;color:#888">Sin objetos BIM</td></tr>';
+  const html=`<!doctype html><html lang=es><head><meta charset=utf-8><title>Lámina · ${p.npn||'Proyecto'}</title><style>@page{size:A3 landscape;margin:8mm}*{box-sizing:border-box;margin:0;font-family:'Segoe UI',Arial,sans-serif}body{background:#e9edf2;color:#1a2230;padding:14px}.sheet{background:#fff;border:2px solid #1a2230;max-width:1600px;margin:auto}.head{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1a2230;padding:12px 16px}.head .brand{font-weight:800;color:#c8901a;font-size:22px}.grid{display:grid;grid-template-columns:2fr 1fr}.views{display:grid;grid-template-columns:1fr 1fr;border-right:2px solid #1a2230}.view{border:1px solid #cdd4de;position:relative;min-height:230px;background:#0a0d12}.view img{width:100%;height:100%;object-fit:contain}.view .lbl{position:absolute;top:6px;left:8px;background:#1a2230;color:#f4b942;font-size:11px;padding:3px 8px}.info{padding:12px 16px;font-size:12px}.info h2{font-size:12px;color:#c8901a;border-bottom:1px solid #ccc;padding-bottom:4px;margin-bottom:8px;text-transform:uppercase}.kv{display:grid;grid-template-columns:auto 1fr;gap:3px 10px;margin-bottom:12px}.kv .k{color:#666}.kv .v{font-weight:600;text-align:right}table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}th,td{border:1px solid #cdd4de;padding:3px 5px;text-align:center}th{background:#1a2230;color:#fff}.foot{border-top:2px solid #1a2230;display:flex;justify-content:space-between;padding:8px 16px;font-size:10px;color:#555}.noprint{position:fixed;top:10px;right:10px}.noprint button{background:#f4b942;border:0;padding:10px 16px;font-weight:700;cursor:pointer;border-radius:6px}@media print{.noprint{display:none}body{background:#fff;padding:0}}</style></head><body><div class="noprint"><button onclick="window.print()">Imprimir / PDF</button></div><div class="sheet"><div class="head"><div><h1 style="font-size:20px">${(p.direpred||'PROYECTO BIM 5D').toUpperCase()}</h1><div style="font-size:12px;color:#555">${p.nom_barrio||''}${p.comuna?' · Comuna '+p.comuna:''} · Cali</div></div><div style="text-align:right;font-size:11px"><div class="brand">LifeCity</div><div>NPN ${p.npn||'—'}</div><div>${new Date().toLocaleString('es-CO')}</div></div></div><div class="grid"><div class="views"><div class="view"><span class="lbl">ISOMÉTRICA</span><img src="${imgs.iso}"></div><div class="view"><span class="lbl">CENITAL</span><img src="${imgs.top}"></div><div class="view"><span class="lbl">FRONTAL</span><img src="${imgs.front}"></div><div class="view" style="background:#fff;color:#1a2230;padding:10px"><div style="width:100%"><div class="lbl" style="position:static;display:inline-block;margin-bottom:8px">OBJETOS BIM</div><table><tr><th>#</th><th>Elemento</th><th>Estado</th><th>Nivel</th><th>Cantidad</th></tr>${rowsB}</table></div></div></div><div class="info"><h2>Predio</h2><div class="kv"><span class="k">Dirección</span><span class="v">${p.direpred||'—'}</span><span class="k">Área lote</span><span class="v">${lotArea?fmt(lotArea):'—'} m²</span><span class="k">ICB / ICA</span><span class="v">${icb!=null?icb.toFixed(2):'—'} / ${ica!=null?ica.toFixed(2):'—'}</span></div><h2>Propuesta 5D</h2><div class="kv"><span class="k">Masas</span><span class="v">${masses.length}</span><span class="k">Área construida</span><span class="v">${fmt(built)} m²</span><span class="k">Índice logrado</span><span class="v">${idx}</span><span class="k">Objetos BIM</span><span class="v">${bim.length}</span><span class="k">Redes MEP</span><span class="v">${mep.length}</span><span class="k">Habitaciones</span><span class="v">${rooms.length}</span><span class="k">Presupuesto directo</span><span class="v">${money(bud)}</span></div><h2>Niveles</h2><div class="kv">${levels.map(l=>`<span class="k">${l.name}</span><span class="v">+${l.elev.toFixed(2)} m</span>`).join('')}</div></div></div><div class="foot"><span>LifeCity · Plataforma Urbana AEC · Editor BIM 5D</span><span>Catastro IDESC Cali · POT 2014 · Presupuesto APU</span></div></div></body></html>`;
+  const w=window.open('','_blank'); if(!w){ flash('Permite ventanas emergentes para la lámina.','#ff5252'); return; } w.document.write(html); w.document.close(); }
+function exportJSON(){ download(JSON.stringify(collectStudy(),null,2),(lot&&lot.npn||'lifecity')+'_5D.json','application/json'); }
+
+/* ============================================================
+   WIRING de botones y sliders
+   ============================================================ */
+syncLabels();
+['s-floors','s-fh','s-off'].forEach(id=>$(id).addEventListener('input',()=>{ syncLabels(); if(selMass){ selMass.floors=+$('s-floors').value; selMass.floorH=+$('s-fh').value; selMass.offset=+$('s-off').value; buildMass(selMass); refresh(); } }));
+$('btn-add').onclick=addMass;
+$('btn-add-pot').onclick=addMassPOT;
+$('btn-pick-front').onclick=()=>{ if(footprint.length<3){ flash('Abre un predio desde el visor para definir el frente.','#ff5252'); return; }
+  mode==='pickFront'?setMode('orbit'):(setMode('pickFront'),flash('Clic sobre el BORDE del lote que da a la calle (frente).','#6bd96b')); };
+$('s-ante').addEventListener('input',(e)=>{ $('v-ante').textContent=(+e.target.value).toFixed(1); if(selMass&&selMass.pot){ selMass.ante=+e.target.value; buildMass(selMass); refresh(); } });
+$('c-vola').onchange=(e)=>{ if(e.target.checked && +$('s-ante').value<=0){ flash('Sin antejardín no hay voladizo permitido (Vmáx = 0,25 × antejardín). Define el antejardín primero.','#ff5252'); e.target.checked=false; return; }
+  if(selMass&&selMass.pot){ selMass.vola=e.target.checked; buildMass(selMass); refresh(); } };
+$('c-patio1').onchange=(e)=>{ if(selMass&&selMass.pot){ selMass.patio1=e.target.checked; buildMass(selMass); refresh(); } };
+$('c-patio2').onchange=(e)=>{ if(selMass&&selMass.pot){ selMass.patio2=e.target.checked; buildMass(selMass); refresh(); } };
+$('c-context')&&($('c-context').onchange=(e)=>gContext.visible=e.target.checked);
+$('btn-add-level').onclick=()=>{ addLevel($('lvl-name').value.trim(), $('lvl-elev').value); $('lvl-name').value=''; };
+$('s-wt').addEventListener('input',(e)=>$('v-wt').textContent=(+e.target.value).toFixed(2));
+$('s-dia').addEventListener('input',(e)=>$('v-dia').textContent=e.target.value);
+$('btn-draw-wall').onclick=()=>{ mode==='drawWall'?cancelDraw():(setMode('drawWall'),$('wall-hint').textContent='Clic el punto INICIAL del muro…'); };
+$('btn-boxsel').onclick=()=>{ if(!cloud.pos){ flash('Importa una nube de puntos primero.','#ff5252'); return; } mode==='box'?setMode('orbit'):setMode('box'); };
+$('btn-bim-create').onclick=()=>{ addBimElement($('bim-type').value, $('st-exist').checked, selBBox); selBBox=null; };
+$('btn-mep-route').onclick=()=>{ mode==='pipe'?finishPipe():(setMode('pipe'),pipePts=[],flash('Clic los vértices de la tubería · Enter/doble-clic para terminar','#4dd0e1')); };
+$('btn-mep-fixture').onclick=()=>{ mode==='fixture'?setMode('orbit'):(setMode('fixture'),flash('Clic para colocar la salida/punto','#4dd0e1')); };
+$('btn-mep-panel').onclick=()=>{ mode==='panel'?setMode('orbit'):(setMode('panel'),flash('Clic para colocar el tablero','#4dd0e1')); };
+$('btn-room-draw').onclick=()=>{ mode==='room'?cancelDraw():(setMode('room'),roomP1=null,flash('Clic una esquina de la habitación (2 clics)','#ff5252')); };
+$('btn-open-rentas').onclick=openRentas; $('btn-rentas').onclick=openRentas;
+$('btn-apu-db').onclick=()=>{ renderApuTable(); openModal('modal-apu'); };
+$('btn-budget').onclick=openBudget;
+$('btn-save-study').onclick=saveStudy; $('btn-sheet').onclick=exportSheet; $('btn-ifc').onclick=exportIFC; $('btn-export').onclick=exportJSON;
+$('btn-back').onclick=()=>{ if(history.length>1) history.back(); else location.href='cali_aec_viewer.html'; };
+if(window.LifeCityAuth){ $('btn-logout').onclick=()=>window.LifeCityAuth.logout(); }
+// nube
+$('file-cloud').onchange=(e)=>{ if(e.target.files[0]) loadCloudFile(e.target.files[0]); e.target.value=''; };
+$('btn-cloud-points').onclick=()=>{ if(cloud.pos){ buildCloudView('points'); } };
+$('btn-cloud-mesh').onclick=()=>{ if(cloud.pos){ buildCloudView('mesh'); } };
+$('btn-cloud-clear').onclick=()=>{ gCloud.clear(); tcontrols.detach(); cloud={pos:null,col:null,count:0,mode:cloud.mode,obj:null,range:[0,0]}; $('cloud-info').textContent='Nube eliminada.'; };
+$('s-psize').addEventListener('input',(e)=>{ $('v-psize').textContent=(+e.target.value).toFixed(1); if(cloud.obj&&cloud.mode==='points') cloud.obj.material.size=+e.target.value; });
+$('c-zup').onchange=()=>{ if(cloud.pos) $('cloud-info').textContent='Reimporta la nube para aplicar el nuevo eje de altura.'; };
+$('g-move').onclick=()=>{ if(cloud.obj){ tcontrols.attach(gCloud); tcontrols.setMode('translate'); } };
+$('g-rot').onclick=()=>{ if(cloud.obj){ tcontrols.attach(gCloud); tcontrols.setMode('rotate'); } };
+$('g-scale').onclick=()=>{ if(cloud.obj){ tcontrols.attach(gCloud); tcontrols.setMode('scale'); } };
+$('s-cscale').addEventListener('input',(e)=>{ const v=+e.target.value; $('v-cscale').textContent=v.toFixed(2); gCloud.scale.setScalar(v); });
+$('s-crot').addEventListener('input',(e)=>{ const v=+e.target.value; $('v-crot').textContent=v; gCloud.rotation.y=v*Math.PI/180; });
+$('btn-cloud-fit').onclick=fitCloudToLot;
+$('filter-state').onchange=()=>{ applyFilter(); renderPlan(); };
+$('active-level').onchange=()=>{ $('hud-level').textContent=levelName(activeLevelId()); renderPlan(); };
+// colapsar secciones
+document.querySelectorAll('.section h2').forEach(h=>h.onclick=()=>h.parentElement.classList.toggle('collapsed'));
+
+/* tabs 3D / Planta */
+$('tab-3d').onclick=()=>{ $('tab-3d').classList.add('on'); $('tab-plan').classList.remove('on'); $('plan-host').classList.remove('on'); };
+$('tab-plan').onclick=()=>{ $('tab-plan').classList.add('on'); $('tab-3d').classList.remove('on'); $('plan-host').classList.add('on'); computePlanTransform(); renderPlan(); };
+
+/* ============================================================
+   TIPO DE PROYECTO (Obra Nueva / Remodelación) — perfiles del inversionista
+   ============================================================ */
+let projectType=null; // 'obra' | 'remo'
+function applyProjectType(t, silent){
+  projectType=t;
+  $('tipo-label').textContent = t==='obra' ? 'Obra nueva (P1)' : t==='remo' ? 'Remodelación (P2)' : 'Sin tipo';
+  const sec=k=>document.querySelector(`.section[data-k="${k}"]`);
+  if(t==='obra'){ sec('potnorms').classList.remove('collapsed'); sec('masa').classList.remove('collapsed'); sec('cloud').classList.add('collapsed'); }
+  else if(t==='remo'){ sec('cloud').classList.remove('collapsed'); sec('bim').classList.remove('collapsed'); sec('potnorms').classList.add('collapsed'); sec('masa').classList.add('collapsed'); }
+  // el wizard de fondeo pregunta distinto según perfil
+  $('f-perfil1').style.display = t==='obra' ? 'flex' : 'none';
+  $('f-perfil2').style.display = t==='remo' ? 'flex' : 'none';
+  if(!silent) flash(t==='obra'?'Perfil 1 · Obra nueva: usa "Normas POT" para la masa con aislamientos.':'Perfil 2 · Remodelación: importa la nube de puntos y crea los objetos BIM existentes.', t==='obra'?'#4dd0e1':'#6bd96b');
+}
+$('btn-tipo').onclick=()=>openModal('modal-tipo');
+$('tipo-obra').onclick=()=>{ applyProjectType('obra'); closeModal('modal-tipo'); openFondeo(); };
+$('tipo-remo').onclick=()=>{ applyProjectType('remo'); closeModal('modal-tipo'); openFondeo(); };
+
+/* ============================================================
+   FONDEO — valida contra el Requerimiento de Adquisición LifeCity
+   ($1.500M COP · zonas Oeste/Centro · Perfil 1 12×12 mixto · Perfil 2 7+ unidades)
+   ============================================================ */
+let funding=null;
+const ZONAS=['El Peñón','Santa Teresita','Santa Rita','Normandía','San Fernando','Granada','San Pedro','Santa Mónica'];
+function readFondeo(){ return { perfil:projectType, barrio:$('f-barrio').value, frente:+$('f-frente').value||0, fondo:+$('f-fondo').value||0,
+  precio:+$('f-precio').value||0, uso:$('f-uso').value, config:$('f-config').value, estado:$('f-estado').value,
+  unidades:+$('f-unidades').value||0, deterioro:$('f-deterioro').value,
+  tradicion:$('f-tradicion').checked, fotos:$('f-fotos').checked, medidas:$('f-medidas').checked }; }
+function evalFondeo(f){
+  const items=[];
+  const ok=(c,label,detail)=>items.push({ok:!!c,label,detail});
+  ok(ZONAS.includes(f.barrio), 'Zona de búsqueda (Oeste / Centro-Pericentro)', f.barrio);
+  ok(f.precio>0 && f.precio<=1500, 'Dentro del presupuesto $1.500M COP', f.precio?('$'+fmt(f.precio)+'M'):'sin precio');
+  ok(f.tradicion, 'Tradición saneada (títulos)', f.tradicion?'OK':'pendiente estudio de títulos');
+  ok(f.fotos, 'Registro fotográfico entorno + fachada', f.fotos?'OK':'pendiente');
+  ok(f.medidas, 'Medidas exactas de frente y fondo', f.medidas?(f.frente+' × '+f.fondo+' m'):'pendiente verificación');
+  if(f.perfil==='obra'){
+    ok(f.frente>=12 && f.fondo>=12, 'Dimensiones mín. 12 × 12 m (144 m²)', f.frente+' × '+f.fondo+' m');
+    ok(f.uso==='mixto', 'Uso de suelo MIXTO (Res + Com)', f.uso);
+    ok(f.config==='esquinera'||f.config==='culatas', 'Esquinera o entre culatas (≥5 pisos)', f.config);
+    ok(f.estado==='baldio'||f.estado==='demoler', 'Lote baldío o casa para demoler', f.estado);
+    ok(icb!=null||ica!=null, 'Índices ICB/ICA consultados (edificabilidad)', icb!=null?('ICB '+icb+' · ICA '+(ica??'—')):'consulta el predio en el visor');
+  } else if(f.perfil==='remo'){
+    ok(f.unidades>=7, 'Capacidad 7+ unidades residenciales', f.unidades+' unidades');
+    ok(f.deterioro!=='bueno', 'Activo en deterioro/recuperable (valor agregado)', f.deterioro);
+    ok(f.uso==='mixto'||f.uso==='residencial', 'Uso mixto o residencial de alta densidad', f.uso);
+  } else { ok(false,'Elige el tipo de proyecto (Perfil 1 u 2)','sin perfil'); }
+  const score=items.filter(i=>i.ok).length;
+  return {items, score, total:items.length, apto: items.every(i=>i.ok)};
+}
+function renderFondeo(){
+  const f=readFondeo(); const r=evalFondeo(f);
+  $('f-score').textContent=`${r.score}/${r.total} ${r.apto?'· APTO PARA FONDEO ✓':''}`;
+  $('f-score').style.color=r.apto?'var(--ok)':(r.score>=r.total-2?'var(--accent)':'var(--accent-2)');
+  $('f-checklist').innerHTML=r.items.map(i=>`<div style="display:flex;gap:8px;align-items:baseline;font-size:11px;padding:5px 8px;background:var(--bg-2);border:1px solid var(--line);border-left:3px solid ${i.ok?'var(--ok)':'var(--accent-2)'}"><span>${i.ok?'✓':'✕'}</span><span style="flex:1">${i.label}</span><span class="hint">${i.detail}</span></div>`).join('');
+  return {f,r};
+}
+function openFondeo(){
+  if(funding){ // repoblar evaluación guardada
+    ['barrio','frente','fondo','precio','uso','config','estado','unidades','deterioro'].forEach(k=>{ const el=$('f-'+k); if(el&&funding[k]!==undefined&&funding[k]!==0) el.value=funding[k]; });
+    $('f-tradicion').checked=!!funding.tradicion; $('f-fotos').checked=!!funding.fotos; $('f-medidas').checked=!!funding.medidas;
+  } else if(lot){ // PREFILL desde el catastro (WFS IDESC): el usuario solo confirma/ajusta
+    const nb=(lot.nom_barrio||'').trim().toLowerCase();
+    const match=ZONAS.find(z=>z.toLowerCase()===nb || nb.includes(z.toLowerCase()));
+    $('f-barrio').value=match||'otro';
+    // frente/fondo desde la geometría del predio (usa los roles de arista si ya están asignados)
+    const roles=edgeRoles(); let fLen=0;
+    roles.forEach((r,i)=>{ if(r==='frente') fLen+=edgeDir(i).len; });
+    if(!fLen && footprint.length>2){ const lens=footprint.map((_,i)=>edgeDir(i).len).sort((a,b)=>a-b); fLen=lens[0]; }
+    if(fLen){ $('f-frente').value=fLen.toFixed(1); $('f-fondo').value=(lotArea/fLen).toFixed(1); }
+    $('fondeo-sub').textContent=`${lot.direpred||''} · ${lot.nom_barrio||''} · ${fmt(lotArea)} m² · ICB ${icb??'—'} / ICA ${ica??'—'} — datos precargados del catastro IDESC (WFS)`;
+  }
+  renderFondeo(); openModal('modal-fondeo'); }
+['f-barrio','f-frente','f-fondo','f-precio','f-uso','f-config','f-estado','f-unidades','f-deterioro','f-tradicion','f-fotos','f-medidas'].forEach(id=>{ const el=$(id); if(el){ el.addEventListener('input',renderFondeo); el.addEventListener('change',renderFondeo); } });
+$('f-save').onclick=()=>{ funding=readFondeo(); flash('Evaluación de fondeo guardada en el proyecto.','#6bd96b'); closeModal('modal-fondeo'); };
+$('f-ficha').onclick=()=>{
+  const {f,r}=renderFondeo(); funding=f; const p=lot||{};
+  const rows=r.items.map(i=>`<tr><td style="color:${i.ok?'#2a7':'#c00'};font-weight:700">${i.ok?'✓ CUMPLE':'✕ NO CUMPLE'}</td><td>${i.label}</td><td>${i.detail}</td></tr>`).join('');
+  const html=`<!doctype html><html lang=es><head><meta charset=utf-8><title>Ficha técnica · ${p.npn||'Predio'}</title><style>@page{size:A4;margin:12mm}*{box-sizing:border-box;margin:0;font-family:'Segoe UI',Arial,sans-serif}body{background:#fff;color:#1a2230;padding:20px}h1{font-size:20px}h2{font-size:13px;color:#c8901a;text-transform:uppercase;border-bottom:1px solid #ccc;margin:16px 0 8px;padding-bottom:4px}.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12px}.kv b{text-align:right}table{width:100%;border-collapse:collapse;font-size:11px;margin-top:6px}td,th{border:1px solid #cdd4de;padding:5px 7px;text-align:left}th{background:#1a2230;color:#fff}.big{font-size:15px;font-weight:800;color:${r.apto?'#2a7':'#c00'}}.noprint{position:fixed;top:10px;right:10px}.noprint button{background:#f4b942;border:0;padding:10px 16px;font-weight:700;cursor:pointer;border-radius:6px}@media print{.noprint{display:none}}</style></head><body>
+  <div class="noprint"><button onclick="window.print()">Imprimir / PDF</button></div>
+  <h1>FICHA TÉCNICA · PROPUESTA INMOBILIARIA</h1>
+  <div style="font-size:11px;color:#666">Requerimiento de Adquisición LifeCity · Cali (Oeste y Centro) · Presupuesto $1.500M COP · ${new Date().toLocaleString('es-CO')}</div>
+  <h2>Predio</h2><div class="kv">
+    <b>NPN</b><span>${p.npn||'—'}</span><b>Dirección</b><span>${p.direpred||'—'}</span>
+    <b>Barrio</b><span>${f.barrio||p.nom_barrio||'—'}${p.comuna?' · Comuna '+p.comuna:''}</span>
+    <b>Frente × Fondo</b><span>${f.frente||'—'} × ${f.fondo||'—'} m ${f.medidas?'(verificado)':'(por verificar)'}</span>
+    <b>Área lote</b><span>${lotArea?fmt(lotArea)+' m²':'—'}</span>
+    <b>Altura permitida / índices</b><span>ICB ${icb??'—'} · ICA ${ica??'—'} → edificabilidad máx ${maxBuild?fmt(maxBuild)+' m²':'—'} (POT Mapa 45 · verificar ficha DAPM)</span>
+    <b>Precio pedido</b><span>${f.precio?'$'+fmt(f.precio)+'M COP':'—'}</span>
+    <b>Perfil</b><span>${f.perfil==='obra'?'PERFIL 1 · Desarrollo de obra nueva':'PERFIL 2 · Remodelación / Multifamiliar'}</span>
+    <b>Tradición</b><span>${f.tradicion?'Saneada (estudio de títulos OK)':'PENDIENTE estudio de títulos'}</span>
+    <b>Fotos</b><span>${f.fotos?'Registro completo entorno + fachada':'PENDIENTE registro fotográfico'}</span></div>
+  <h2>Cumplimiento del requerimiento</h2>
+  <div class="big">${r.score}/${r.total} criterios — ${r.apto?'APTO PARA PRESENTAR AL INVERSIONISTA':'NO CUMPLE AÚN (ver pendientes)'}</div>
+  <table><tr><th>Estado</th><th>Criterio</th><th>Detalle</th></tr>${rows}</table>
+  <h2>Propuesta técnica (del modelo)</h2><div class="kv">
+    <b>Masas / pisos</b><span>${masses.length} masa(s) · altura máx ${topOfStack().toFixed(1)} m</span>
+    <b>Área construida</b><span>${fmt(totalBuilt())} m²</span>
+    <b>Objetos BIM</b><span>${bim.length} (${bim.filter(e=>e.existing).length} existentes · ${bim.filter(e=>!e.existing).length} nuevos)</span>
+    <b>Unidades de renta</b><span>${rooms.length} · canon potencial $${fmt(rooms.reduce((s,r2)=>s+(r2.canon||0),0))}/mes</span>
+    <b>Presupuesto directo obra</b><span>${money(computeBudget().total)}</span></div>
+  <div style="margin-top:18px;font-size:10px;color:#777">LifeCity BIM 5D · Documentación exigida: ficha técnica con medidas exactas + fotos, tradición saneada, altura permitida e índice de ocupación, disponibilidad para debida diligencia.</div>
+  </body></html>`;
+  const w=window.open('','_blank'); if(!w){ flash('Permite ventanas emergentes para la ficha.','#ff5252'); return; } w.document.write(html); w.document.close();
+};
+
+/* ============================================================
+   MCP — puente con Claude (Desktop/Code) para opciones de diseño
+   ============================================================ */
+$('btn-mcp-export').onclick=()=>{
+  const data=collectStudy();
+  data._mcp={ version:1, instrucciones:'Proyecto LifeCity BIM 5D. Usa las tools del servidor MCP (mcp/server.mjs) para leer habitaciones y agregar opciones de diseño. REGLA DURA: toda habitación (uso=habitacion) y la sala (uso=sala) deben tener al menos una VENTANA (typeId "ventana") en el diseño. Los objetos se colocan dentro del rectángulo de la habitación (x±w/2, z±d/2).',
+    catalogo:CATALOG.map(c=>({typeId:c.id,label:c.label,unidad:c.unit,dims:c.dims})) };
+  download(JSON.stringify(data,null,2),(studyKey())+'_lifecity.json','application/json');
+  flash('Guárdalo en mcp/proyectos/ y pídele a Claude opciones de diseño por habitación.','#6bd96b');
+};
+$('mcp-import').onchange=(e)=>{
+  const file=e.target.files[0]; if(!file) return; const rd=new FileReader();
+  rd.onload=()=>{ try{
+      const st=JSON.parse(rd.result);
+      const nuevos=(st.bim||[]).filter(x=>x.fromClaude);
+      if(!nuevos.length){ flash('El archivo no trae objetos de Claude (fromClaude). ¿Corriste las tools del MCP?','#f4b942'); return; }
+      // Validación regla de ventanas: por cada habitación/sala tocada debe existir ventana
+      const roomsTouched=[...new Set(nuevos.map(x=>x.roomId).filter(Boolean))];
+      const faltan=[];
+      roomsTouched.forEach(rid2=>{ const r=(st.rooms||rooms).find(rr=>rr.id===rid2); if(!r) return;
+        if((r.uso==='habitacion'||r.uso==='sala') && !nuevos.some(x=>x.roomId===rid2 && x.typeId==='ventana') && !bim.some(x=>x.roomId===rid2&&x.typeId==='ventana')) faltan.push(r.name||('unidad '+rid2)); });
+      if(faltan.length){ flash('Diseño RECHAZADO: sin ventana en '+faltan.join(', ')+' (toda habitación y la sala deben tener ventana).','#ff5252'); return; }
+      let added=0;
+      nuevos.forEach(x=>{ if(bim.some(b=>b.fromClaude && b.id===x.id)) return; const t=catalogById(x.typeId); if(!t) return;
+        const ee={...x, id:bid++, cat:t.cat, label:t.label+(x.optionName?' · '+x.optionName:''), unit:t.unit, color:t.color, existing:!!x.existing, apu:x.apu||null};
+        bim.push(ee); buildBim(ee); added++; });
+      refresh(); renderPlan();
+      flash(`Diseño de Claude importado: ${added} objeto(s) BIM · regla de ventanas OK ✓`,'#6bd96b');
+    }catch(err){ flash('Error importando: '+err.message,'#ff5252'); } };
+  rd.readAsText(file); e.target.value='';
+};
+
+/* ============================================================
+   DISEÑAR CON CLAUDE — botón que activa el enlace y CREA elementos
+   (API de Anthropic directa desde el navegador; app estática sin build,
+   por eso fetch con el header anthropic-dangerous-direct-browser-access)
+   ============================================================ */
+const CL_KEY='lifecity_anthropic_key';
+$('btn-claude').onclick=()=>{
+  if(!rooms.length){ flash('Dibuja primero una habitación (Rentas · Habitaciones → "Dibujar habitación") para que Claude la diseñe.','#ff5252'); return; }
+  $('cl-room').innerHTML=rooms.map(r=>`<option value="${r.id}">${r.name} · ${r.uso||'habitacion'} · ${r.w.toFixed(1)}×${r.d.toFixed(1)} m · ${levelName(r.level)}</option>`).join('');
+  if(selEl&&selEl.kind==='room') $('cl-room').value=selEl.id;
+  $('cl-key').value=localStorage.getItem(CL_KEY)||'';
+  $('cl-status').textContent='Claude aplica la regla dura: toda habitación y la sala llevan VENTANA en el perímetro. Los elementos aparecen al instante en 3D y en la planta.';
+  openModal('modal-claude');
+};
+$('cl-go').onclick=async()=>{
+  const key=$('cl-key').value.trim();
+  if(!key){ $('cl-status').innerHTML='<span style="color:#ff8f8f">Pega tu API key de Anthropic (console.anthropic.com → API Keys). Alternativa sin key: servidor MCP en mcp/.</span>'; return; }
+  localStorage.setItem(CL_KEY,key);
+  const room=rooms.find(r=>r.id===+$('cl-room').value); if(!room) return;
+  const btn=$('cl-go'); btn.disabled=true;
+  $('cl-status').innerHTML='<span style="color:var(--accent-3)">✦ Claude está diseñando "'+room.name+'"…</span>';
+  try{
+    const res=await claudeDesign(key, room, $('cl-brief').value.trim());
+    const needs=(room.uso||'habitacion')==='habitacion'||room.uso==='sala';
+    if(needs && !res.objetos.some(o=>o.typeId==='ventana')) throw new Error('El diseño no incluyó ventana (regla de iluminación). Reintenta.');
+    let added=0, fuera=0;
+    res.objetos.forEach(o=>{ const t=catalogById(o.typeId); if(!t) return;
+      if(Math.abs(o.x-room.x)>room.w/2+0.3 || Math.abs(o.z-room.z)>room.d/2+0.3){ fuera++; return; }
+      const ee={id:bid++,typeId:o.typeId,cat:t.cat,label:t.label,unit:t.unit,color:t.color,existing:false,level:room.level,
+        x:o.x,z:o.z,w:o.w||t.dims.w,h:o.h||t.dims.h,d:o.d||t.dims.d,rotY:o.rotY||0,apu:null,
+        fromClaude:true,optionName:res.opcion||'Diseño Claude',roomId:room.id};
+      bim.push(ee); buildBim(ee); added++; });
+    refresh(); renderPlan();
+    $('cl-status').innerHTML=`<span style="color:var(--ok)">✓ "${res.opcion}" — ${added} elemento(s) creados en 3D y planta${fuera?` (${fuera} descartados por quedar fuera del espacio)`:''}.</span><br><span class="hint">${res.descripcion||''}</span>`;
+    flash(`Claude creó ${added} elementos en "${room.name}" ✓ (regla de ventanas OK)`,'#6bd96b');
+  }catch(err){ $('cl-status').innerHTML='<span style="color:#ff8f8f">✕ '+err.message+'</span>'; }
+  btn.disabled=false;
+};
+async function claudeDesign(key, room, brief){
+  const catalogo=CATALOG.map(c=>`${c.id} = ${c.label} (${c.dims.w}×${c.dims.h}×${c.dims.d} m, ${c.unit})`).join('; ');
+  const objSchema={type:'object',additionalProperties:false,
+    required:['typeId','x','z','w','h','d','rotY'],
+    properties:{typeId:{type:'string',enum:CATALOG.map(c=>c.id)},x:{type:'number'},z:{type:'number'},w:{type:'number'},h:{type:'number'},d:{type:'number'},rotY:{type:'number'}}};
+  const schema={type:'object',additionalProperties:false,required:['opcion','descripcion','objetos'],
+    properties:{opcion:{type:'string'},descripcion:{type:'string'},objetos:{type:'array',items:objSchema}}};
+  const resp=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({
+      model:'claude-opus-4-8', max_tokens:4096,
+      output_config:{format:{type:'json_schema',schema}},
+      system:`Eres el arquitecto de interiores de LifeCity BIM (Cali, Colombia). Diseñas la distribución de UN espacio colocando elementos BIM del catálogo en coordenadas ABSOLUTAS en metros (plano XZ; el alto va en h).
+Catálogo typeId disponibles: ${catalogo}.
+REGLAS DURAS:
+1. Si el espacio es de uso "habitacion" o "sala", incluye al menos una "ventana" colocada EN el perímetro del rectángulo (x ≈ cx±w/2 o z ≈ cz±d/2), con rotY alineado al borde (0 si el borde es paralelo al eje X, 1.5708 si es paralelo al eje Z).
+2. TODOS los objetos deben quedar dentro del rectángulo del espacio.
+3. Usa muro-drywall para closets y divisiones interiores, "puerta" en un borde, "sanitario"/"lavamanos" solo si piden baño, "lavaplatos" solo en cocinas.
+4. Genera entre 4 y 8 objetos con una distribución funcional y realista (circulación libre, cama/mobiliario representados con muro-drywall bajo h=0.5 si hace falta).
+5. En "descripcion" explica en 1-2 frases la lógica de la distribución para el usuario.`,
+      messages:[{role:'user',content:`Espacio "${room.name}" · uso=${room.uso||'habitacion'} · centro=(${room.x.toFixed(2)}, ${room.z.toFixed(2)}) · ancho w=${room.w.toFixed(2)} m en eje X × fondo d=${room.d.toFixed(2)} m en eje Z · nivel ${levelName(room.level)} (elev ${levelElev(room.level).toFixed(2)} m). ${brief?('Indicaciones del usuario: '+brief):'Propón la mejor distribución.'}`}]
+    })});
+  if(!resp.ok){
+    const e=await resp.json().catch(()=>({}));
+    throw new Error(resp.status===401?'API key inválida o revocada.':((e.error&&e.error.message)||('Error HTTP '+resp.status)));
+  }
+  const data=await resp.json();
+  if(data.stop_reason==='refusal') throw new Error('Claude declinó la solicitud.');
+  const txt=(data.content.find(b=>b.type==='text')||{}).text||'';
+  const parsed=JSON.parse(txt);
+  return { opcion:parsed.opcion, descripcion:parsed.descripcion, objetos:parsed.objetos||[] };
+}
+
+/* ============================================================
+   HEADER predio + INIT
+   ============================================================ */
+function fillHead(){ if(!lot){ return; } $('predio-head').innerHTML=`<div class="npn">${lot.npn||'—'}</div><div class="kv"><b>${lot.direpred||'—'}</b></div><div class="kv">${lot.nom_barrio||'—'} · Comuna ${lot.comuna||'—'}</div><div class="kv">Área lote <b>${lotArea?fmt(lotArea):'—'} m²</b></div>`;
+  $('hud-npn').textContent=lot.numepred||lot.npn||'—'; $('hud-area').textContent=(lotArea?fmt(lotArea):'—')+' m²'; $('m-icb').textContent=icb!=null?icb.toFixed(2):'—'; $('m-ica').textContent=ica!=null?ica.toFixed(2):'—'; }
+
+function resize(){ const w=canvas.clientWidth,h=canvas.clientHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); if($('plan-host').classList.contains('on')) renderPlan(); }
+window.addEventListener('resize',resize);
+function animate(){ requestAnimationFrame(animate); controls.update(); renderer.render(scene,camera); }
+
+// restaurar estudio o niveles por defecto
+if(lot && lot.study && (lot.study.levels||lot.study.masses||lot.study.bim)){ restoreStudy(lot.study); flash('Proyecto restaurado desde el dashboard.','#4dd0e1'); }
+else { addLevel('N0', 0); addLevel('N1', 3); addLevel('N2', 6); refreshWallUI();
+  setTimeout(()=>openModal('modal-tipo'), 500); } // proyecto nuevo → elegir Obra nueva / Remodelación
+
+resize(); fillHead(); drawLot(); renderLevels(); renderEdgeRoleList(); updateFrontInfo(); refresh(); animate();
+if(footprint.length>=3){ const iso=Math.max(120, Math.sqrt(lotArea)*3); camera.position.set(iso,iso,iso); controls.target.set(0,0,0); }
+// refresco periódico para el estado de rentas "en tiempo real"
+setInterval(()=>{ renderRentMini(); if($('modal-rentas').classList.contains('on'))openRentas(); rebuildRooms(); },30000);
+</script>
+
+<!-- ===================== PROTOCOLO DE APRENDIZAJE (hooks no invasivos) ===================== -->
+<script>
+(function(){
+  if(!window.LifeLearn) return;
+  var L=window.LifeLearn;
+  function on(id,ev,fn){ var el=document.getElementById(id); if(el) el.addEventListener(ev,fn,true); }
+  function predioCtx(){ try{ var h=JSON.parse(localStorage.getItem('cali_massing_handoff')||'{}'); return {npn:h.npn,area:h.area,icb:h.icb,ica:h.ica}; }catch(e){ return {}; } }
+  // Interiores con IA: registra el brief y la habitación objetivo al pedir un diseño
+  on('cl-go','click',function(){ L.log('interior_brief',{ predio:predioCtx(), room:(document.getElementById('cl-room')||{}).value||null, brief:(document.getElementById('cl-brief')||{}).value||'' }); });
+  on('btn-claude','click',function(){ L.log('interior_open',{predio:predioCtx()}); });
+  // Habitaciones (unidades de renta / espacios a diseñar)
+  on('room-save','click',function(){ L.log('room_save',{ predio:predioCtx(), name:(document.getElementById('room-name')||{}).value||'', uso:(document.getElementById('room-uso')||{}).value||'', canon:(document.getElementById('room-canon')||{}).value||'' }); });
+  on('btn-room-draw','click',function(){ L.log('room_draw_start',{predio:predioCtx()}); });
+  // Importación de diseño de Claude (MCP)
+  on('mcp-import','change',function(){ L.log('interior_apply_mcp',{predio:predioCtx()}); });
+  // Nivel activo (planta por nivel)
+  on('active-level','change',function(e){ L.log('plan_level',{ predio:predioCtx(), level:e.target.value }); });
+  on('tab-plan','click',function(){ L.log('open_plan',{predio:predioCtx()}); });
+  L.log('bim_open',{predio:predioCtx()});
+  console.log('[LifeLearn] protocolo de aprendizaje activo · endpoint:', L.endpoint());
+})();
+</script>
+</body>
+</html>

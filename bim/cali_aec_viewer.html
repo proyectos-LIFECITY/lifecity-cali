@@ -1,0 +1,1379 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<script src="auth.js"></script>
+<title>Cali AEC Urban Viewer · Catastro IDESC</title>
+<style>
+  :root {
+    --bg-0: #0a0d12;
+    --bg-1: #11161e;
+    --bg-2: #1a2230;
+    --line: #2a3548;
+    --text: #e6ecf5;
+    --text-dim: #8b97aa;
+    --accent: #f4b942;
+    --accent-2: #ff5252;
+    --accent-3: #4dd0e1;
+    --ok: #6bd96b;
+    --mono: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+    --display: 'Space Grotesk', 'Inter', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--bg-0); color: var(--text); font-family: var(--mono); font-size: 12px; }
+  #app { display: grid; grid-template-columns: 288px 1fr 330px; height: 100vh; }
+
+  /* ===== LEFT PANEL ===== */
+  #left {
+    background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+    border-right: 1px solid var(--line);
+    padding: 18px 16px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+  .brand {
+    display: flex; align-items: baseline; gap: 8px;
+    padding-bottom: 14px; border-bottom: 1px solid var(--line);
+  }
+  .brand h1 { font-family: var(--display); font-size: 15px; font-weight: 600; letter-spacing: 0.5px; }
+  .brand .tag { font-size: 9px; color: var(--accent); letter-spacing: 1.5px; text-transform: uppercase; }
+
+  .section { display: flex; flex-direction: column; gap: 8px; }
+  .section h2 {
+    font-size: 9px; letter-spacing: 2px; text-transform: uppercase;
+    color: var(--text-dim); font-weight: 500;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .section h2 .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+
+  .btn {
+    width: 100%; padding: 9px 12px;
+    background: var(--bg-2); border: 1px solid var(--line); color: var(--text);
+    font-family: var(--mono); font-size: 11px; cursor: pointer;
+    text-align: left; display: flex; align-items: center; gap: 8px;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: #232c3d; border-color: var(--accent); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn .ic { color: var(--accent); font-weight: 700; }
+  .btn.primary { background: var(--accent); color: #1a1305; border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { background: #ffc857; }
+  .btn.cyan { border-color: var(--accent-3); }
+  .btn.cyan .ic { color: var(--accent-3); }
+
+  input[type="file"] { display: none; }
+
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 9px; color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; }
+  .field input, .field select {
+    background: var(--bg-0); border: 1px solid var(--line); color: var(--text);
+    padding: 7px 9px; font-family: var(--mono); font-size: 11px; width: 100%;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .search-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; }
+  .search-row .btn { width: auto; padding: 7px 12px; justify-content: center; }
+
+  .toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 4px 0; }
+  .toggle input { accent-color: var(--accent); }
+  .toggle span { font-size: 11px; }
+
+  .hint { font-size: 10px; color: var(--text-dim); line-height: 1.5; }
+  .slider-row { display: flex; align-items: center; gap: 8px; }
+  .slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
+  .slider-row .v { color: var(--accent); font-size: 10px; min-width: 46px; text-align: right; }
+
+  /* ===== CENTER ===== */
+  #center { position: relative; background: #000; }
+  #canvas { width: 100%; height: 100%; display: block; }
+
+  .hud {
+    position: absolute; pointer-events: none;
+    font-family: var(--mono); color: var(--text-dim); font-size: 10px;
+    letter-spacing: 1px;
+  }
+  .hud-tl { top: 16px; left: 16px; }
+  .hud-tr { top: 16px; right: 16px; text-align: right; }
+  .hud-bl { bottom: 16px; left: 16px; }
+  .hud-br { bottom: 16px; right: 16px; text-align: right; }
+  .hud .v { color: var(--accent); }
+  .hud .lbl { color: var(--text-dim); margin-right: 6px; }
+
+  .crosshair {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    width: 16px; height: 16px; pointer-events: none;
+    border: 1px solid rgba(244, 185, 66, 0.3);
+  }
+
+  .loading {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(10,13,18,0.92); border: 1px solid var(--accent);
+    padding: 18px 28px; font-family: var(--mono); font-size: 11px;
+    letter-spacing: 1.5px; color: var(--accent);
+    display: none; pointer-events: none; z-index: 5;
+  }
+  .loading.show { display: block; }
+  .loading::before { content: '> '; animation: blink 0.7s infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .toast {
+    position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+    background: rgba(10,13,18,0.95); border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    padding: 10px 16px; font-size: 11px; color: var(--text);
+    display: none; z-index: 6; max-width: 70%; pointer-events: none;
+  }
+  .toast.show { display: block; }
+  .toast.ok { border-left-color: var(--ok); }
+  .toast.err { border-left-color: var(--accent-2); }
+
+  /* ===== RIGHT PANEL ===== */
+  #right {
+    background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+    border-left: 1px solid var(--line);
+    padding: 18px 16px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 18px;
+  }
+
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat {
+    background: var(--bg-2); border: 1px solid var(--line);
+    padding: 10px; display: flex; flex-direction: column; gap: 2px;
+  }
+  .stat .lbl { font-size: 8px; color: var(--text-dim); letter-spacing: 1.5px; text-transform: uppercase; }
+  .stat .val { font-family: var(--display); font-size: 18px; font-weight: 600; color: var(--accent); }
+
+  /* Predio seleccionado */
+  .predio {
+    background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--accent-3);
+    padding: 12px; display: flex; flex-direction: column; gap: 7px;
+  }
+  .predio .npn { font-family: var(--mono); font-size: 12px; color: var(--accent-3); word-break: break-all; letter-spacing: 0.5px; }
+  .predio .kv { display: grid; grid-template-columns: 70px 1fr; gap: 4px 8px; font-size: 10px; }
+  .predio .kv .k { color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .predio .kv .val { color: var(--text); word-break: break-word; }
+  .predio a { color: var(--accent); font-size: 10px; }
+  .pot { background: var(--bg-0); border: 1px solid var(--line); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; margin: 2px 0; }
+  .pot-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 10px; }
+  .pot-row .pk { color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+  .pot-row .pv { font-family: var(--display); font-weight: 600; color: var(--accent); }
+  .pot-row .pv.adi { color: var(--accent-2); }
+  .pot-row .pv.small { font-family: var(--mono); font-weight: 400; color: var(--text); font-size: 9px; text-align: right; }
+  .pot-row.total { border-top: 1px solid var(--line); padding-top: 5px; margin-top: 2px; }
+  .pot-row.total .pv { color: var(--accent-3); font-size: 13px; }
+  .pot-sep { height: 1px; background: var(--line); margin: 2px 0; }
+  .predio .actions { display: flex; gap: 6px; margin-top: 4px; }
+  .predio .actions .btn { padding: 7px 8px; font-size: 10px; justify-content: center; }
+
+  .project-card {
+    background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--accent);
+    padding: 12px; display: flex; flex-direction: column; gap: 6px;
+    cursor: pointer; transition: all 0.15s; position: relative;
+  }
+  .project-card:hover { background: #232c3d; }
+  .project-card.focal { border-left-color: var(--accent-2); }
+  .project-card.selected { background: #2a3548; border-color: var(--accent); }
+  .project-card .name { font-family: var(--display); font-size: 13px; font-weight: 600; padding-right: 18px; }
+  .project-card .meta { display: flex; gap: 10px; font-size: 10px; color: var(--text-dim); flex-wrap: wrap; }
+  .project-card .meta span { color: var(--text); }
+  .project-card .coords { font-size: 9px; color: var(--text-dim); letter-spacing: 0.5px; word-break: break-all; }
+  .project-card .badges { display: flex; gap: 5px; }
+  .project-card .badge { font-size: 8px; padding: 2px 5px; border: 1px solid var(--line); color: var(--text-dim); letter-spacing: 0.5px; }
+  .project-card .badge.on { color: var(--accent-3); border-color: var(--accent-3); }
+  .project-card .badge.ifc.on { color: var(--accent-3); border-color: var(--accent-3); }
+  .project-card .badge.pcd.on { color: var(--ok); border-color: var(--ok); }
+  .project-card .del { position: absolute; top: 8px; right: 8px; color: var(--text-dim); cursor: pointer; font-size: 13px; line-height: 1; }
+  .project-card .del:hover { color: var(--accent-2); }
+
+  .empty { color: var(--text-dim); font-size: 11px; padding: 12px; text-align: center; font-style: italic; }
+
+  .legend { display: flex; flex-direction: column; gap: 6px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-dim); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .legend-sq { width: 10px; height: 10px; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg-0); }
+  ::-webkit-scrollbar-thumb { background: var(--line); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+</head>
+<body>
+
+<div id="app">
+  <!-- ============ LEFT ============ -->
+  <aside id="left">
+    <div class="brand">
+      <h1>CALI · AEC</h1>
+      <span class="tag">CATASTRO · IDESC</span>
+      <button id="btn-logout" title="Cerrar sesión" style="margin-left:auto;background:var(--bg-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:5px 8px;cursor:pointer">⏻</button>
+    </div>
+    <div id="user-chip" style="font-size:10px;color:var(--text-dim);margin-top:-10px">—</div>
+
+    <div class="section">
+      <h2><span>Base Geográfica</span><span class="dot"></span></h2>
+      <button class="btn primary" id="btn-osm"><span class="ic">◉</span> Cargar edificaciones OSM</button>
+      <label class="toggle"><input type="checkbox" id="tg-basemap"><span>Basemap OpenStreetMap (tiles)</span></label>
+      <label class="toggle"><input type="checkbox" id="tg-grid" checked><span>Grilla de referencia</span></label>
+      <label class="toggle"><input type="checkbox" id="tg-buildings" checked><span>Edificaciones OSM</span></label>
+    </div>
+
+    <!-- ===== CATASTRO ===== -->
+    <div class="section">
+      <h2><span>Terrenos de Cali (IDESC)</span><span class="dot"></span></h2>
+      <div class="field">
+        <label>Buscar lote · predial (NPN / número) o dirección</label>
+        <div class="search-row">
+          <input type="text" id="prd-search" placeholder="Ej: 760010100... , C002600260000 o CL 30 # 5-19">
+          <button class="btn cyan" id="btn-search"><span class="ic">⌕</span></button>
+        </div>
+      </div>
+      <button class="btn cyan" id="btn-load-view"><span class="ic">▦</span> Cargar terrenos en vista actual</button>
+      <div class="slider-row">
+        <span class="hint">Radio</span>
+        <input type="range" id="prd-radius" min="150" max="1200" step="50" value="400">
+        <span class="v" id="prd-radius-v">400 m</span>
+      </div>
+      <label class="toggle"><input type="checkbox" id="tg-parcels" checked><span>Mostrar terrenos catastrales</span></label>
+      <div class="hint">Fuente oficial: WFS <b>catastro:cat_bas_terrenos</b> · ws-idesc.cali.gov.co · EPSG:4326 (coincide con OSM).</div>
+    </div>
+
+    <!-- ===== TELEGRAM / n8n ===== -->
+    <div class="section">
+      <h2><span>Fotos Telegram · n8n</span><span class="dot" style="background:#9c6bff"></span></h2>
+      <div class="field">
+        <label>Endpoint n8n (webhook GET → JSON)</label>
+        <input type="text" id="tg-endpoint" placeholder="https://TU-n8n/webhook/cali-fotos">
+      </div>
+      <button class="btn" id="btn-tg-connect"><span class="ic">◉</span> Conectar y sondear fotos</button>
+      <div class="row2">
+        <label class="btn" for="file-photos"><span class="ic">▤</span> Importar JSON</label>
+        <button class="btn" id="btn-photos-focus"><span class="ic">◎</span> Ir a fotos</button>
+      </div>
+      <input type="file" id="file-photos" accept=".json">
+      <label class="toggle"><input type="checkbox" id="tg-photos" checked><span>Mostrar fotos (<span id="photo-count">0</span>)</span></label>
+      <div class="hint">Envía al bot una <b>foto</b> + tu <b>ubicación</b> (📎→Ubicación). n8n la posiciona por las coordenadas del teléfono. Workflow y guía en <b>/n8n</b>.</div>
+    </div>
+
+    <!-- ===== PROPIEDADES ===== -->
+    <div class="section">
+      <h2><span>Propiedades guardadas</span><span class="dot"></span></h2>
+      <div class="hint">Selecciona un predio buscado y pulsa <b>Guardar</b> en el panel derecho. Se conservan en este navegador.</div>
+      <button class="btn" id="btn-clear-saved"><span class="ic">✕</span> Vaciar propiedades guardadas</button>
+    </div>
+
+    <!-- ===== PROYECTO MANUAL ===== -->
+    <div class="section">
+      <h2><span>Proyecto manual</span><span class="dot"></span></h2>
+      <div class="field">
+        <label>Nombre del proyecto</label>
+        <input type="text" id="prj-name" placeholder="Torre Granada Fase II">
+      </div>
+      <div class="row2">
+        <div class="field"><label>Lat</label><input type="number" step="0.000001" id="prj-lat" placeholder="3.4516"></div>
+        <div class="field"><label>Lon</label><input type="number" step="0.000001" id="prj-lon" placeholder="-76.5320"></div>
+      </div>
+      <div class="row3">
+        <div class="field"><label>Altura (m)</label><input type="number" id="prj-h" value="40"></div>
+        <div class="field"><label>Área (m²)</label><input type="number" id="prj-area" value="1200"></div>
+        <div class="field"><label>Etapa</label>
+          <select id="prj-stage">
+            <option>Diseño</option><option>Coordinación</option><option>Obra</option><option>Entregado</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn" id="btn-add-prj"><span class="ic">+</span> Agregar proyecto</button>
+    </div>
+
+    <!-- ===== DESARROLLO: NUBE + IFC ===== -->
+    <div class="section">
+      <h2><span>Desarrollar propiedad</span><span class="dot"></span></h2>
+      <div class="hint">Selecciona una propiedad en el panel derecho y ánclale datos:</div>
+      <label class="btn cyan" for="file-ifc"><span class="ic">▣</span> Cargar modelo IFC</label>
+      <input type="file" id="file-ifc" accept=".ifc">
+      <label class="btn" for="file-pcd"><span class="ic">⋮⋮</span> Cargar nube de puntos</label>
+      <input type="file" id="file-pcd" accept=".xyz,.pts,.txt,.csv,.asc,.pcd">
+      <div class="hint">Nube: XYZ / PTS / CSV (X Y Z [R G B]). Se centra sobre el predio.</div>
+      <label class="btn" for="file-topo"><span class="ic">▲</span> Topografía Civil 3D</label>
+      <input type="file" id="file-topo" accept=".xml,.dxf,.txt,.csv">
+    </div>
+
+    <div class="section">
+      <h2><span>Vista</span><span class="dot"></span></h2>
+      <div class="row2">
+        <button class="btn" id="btn-top"><span class="ic">⊥</span> Cenital</button>
+        <button class="btn" id="btn-iso"><span class="ic">◇</span> Isométrica</button>
+      </div>
+      <button class="btn" id="btn-reset"><span class="ic">↺</span> Reset cámara</button>
+      <button class="btn" id="btn-demo"><span class="ic">◊</span> Datos demo</button>
+    </div>
+  </aside>
+
+  <!-- ============ CENTER ============ -->
+  <main id="center">
+    <canvas id="canvas"></canvas>
+    <div class="hud hud-tl">
+      <div><span class="lbl">CRS</span><span class="v">EPSG:4326 (WGS84) → ENU local</span></div>
+      <div><span class="lbl">CENTER</span><span class="v" id="hud-center">3.4516°N, -76.5320°W</span></div>
+    </div>
+    <div class="hud hud-tr">
+      <div><span class="lbl">FPS</span><span class="v" id="fps">--</span></div>
+      <div><span class="lbl">OBJ</span><span class="v" id="obj-count">0</span></div>
+      <div><span class="lbl">LOTES</span><span class="v" id="parcel-count">0</span></div>
+    </div>
+    <div class="hud hud-bl">
+      <div id="cursor-coords"><span class="lbl">LAT/LON</span><span class="v">--</span></div>
+    </div>
+    <div class="hud hud-br">
+      <div>CALI · VALLE DEL CAUCA · COLOMBIA</div>
+      <div style="color: var(--accent);">v0.2 · LIFE CITY BIM</div>
+      <div style="color: var(--text-dim);">© OpenStreetMap · Catastro Cali IDESC</div>
+    </div>
+    <div class="loading" id="loading">CARGANDO...</div>
+    <div class="toast" id="toast"></div>
+  </main>
+
+  <!-- ============ RIGHT ============ -->
+  <aside id="right">
+    <div class="section">
+      <h2><span>Métricas</span><span class="dot"></span></h2>
+      <div class="stat-grid">
+        <div class="stat"><span class="lbl">Propiedades</span><span class="val" id="m-prj">0</span></div>
+        <div class="stat"><span class="lbl">Área total</span><span class="val" id="m-area">0</span></div>
+        <div class="stat"><span class="lbl">IFC</span><span class="val" id="m-ifc">0</span></div>
+        <div class="stat"><span class="lbl">Nubes</span><span class="val" id="m-pcd">0</span></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2><span>Predio seleccionado</span><span class="dot"></span></h2>
+      <div id="predio-info"><div class="empty">Haz clic en un terreno o búscalo por su número predial.</div></div>
+    </div>
+
+    <div class="section">
+      <h2><span>Leyenda</span><span class="dot"></span></h2>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-sq" style="background:#3a6ea5"></span>Terreno catastral (IDESC)</div>
+        <div class="legend-item"><span class="legend-sq" style="background:#ff5252"></span>Terreno seleccionado</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#f4b942"></span>Propiedad guardada</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#4dd0e1"></span>Modelo IFC</div>
+        <div class="legend-item"><span class="legend-dot" style="background:#6bd96b"></span>Nube de puntos / Topo</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2><span>Listado de Propiedades</span><span class="dot"></span></h2>
+      <div id="prj-list"><div class="empty">Sin propiedades. Busca un predio y guárdalo.</div></div>
+    </div>
+
+    <div class="section">
+      <h2><span>Estudios de masas</span><span class="dot" style="background:#9c6bff"></span></h2>
+      <div id="study-list"><div class="empty">Sin estudios. Crea uno en "Diseñar masas" y guárdalo.</div></div>
+    </div>
+  </aside>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+    "web-ifc": "https://cdn.jsdelivr.net/npm/web-ifc@0.0.50/web-ifc-api.js",
+    "web-ifc-three": "https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.125/IFCLoader.js"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ===================== CONFIG =====================
+const WFS_BASE = 'https://ws-idesc.cali.gov.co/geoserver/ows';
+const WFS_LAYER = 'catastro:cat_bas_terrenos';
+// Campos válidos (se evita shape_len que está roto en el servidor)
+const WFS_PROPS = 'npn,numepred,direpred,nom_barrio,comuna,manzana,terreno,predio,uso_suelo,shape_area,the_geom';
+const STORAGE_KEY = 'cali_aec_props_v1';
+
+// ===================== STATE =====================
+const state = {
+  projects: [],
+  selectedId: null,
+  focalId: null,
+  ifcCount: 0,
+  pcdCount: 0,
+  centerLat: 3.4516,
+  centerLon: -76.5320,
+  parcelRadius: 400,
+  parcels: new Map(),      // id -> { props, mesh, outline, centroid }
+  selectedParcel: null,    // { props, centroid, ring, icb, ica }
+  basemapLoaded: false,
+  photos: [],              // { id, lat, lon, url, caption, date }
+  photoTimer: null,
+};
+
+// ===================== UI HELPERS =====================
+const $ = (id) => document.getElementById(id);
+const showLoading = (msg) => { $('loading').textContent = msg; $('loading').classList.add('show'); };
+const hideLoading = () => $('loading').classList.remove('show');
+let toastT = null;
+function toast(msg, kind = '') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + kind;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 3800);
+}
+
+// ===================== GEO HELPERS (lat/lon <-> local ENU meters) =====================
+const R = 6378137;
+function latLonToLocal(lat, lon) {
+  const dLat = (lat - state.centerLat) * Math.PI / 180;
+  const dLon = (lon - state.centerLon) * Math.PI / 180;
+  const x = dLon * R * Math.cos(state.centerLat * Math.PI / 180);
+  const z = -dLat * R; // norte = -Z
+  return { x, z };
+}
+function localToLatLon(x, z) {
+  const lat = state.centerLat + (-z / R) * 180 / Math.PI;
+  const lon = state.centerLon + (x / (R * Math.cos(state.centerLat * Math.PI / 180))) * 180 / Math.PI;
+  return { lat, lon };
+}
+
+// ===================== THREE SETUP =====================
+const canvas = $('canvas');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x05080d, 1);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0x05080d, 4000, 12000);
+
+const camera = new THREE.PerspectiveCamera(45, 1, 1, 30000);
+camera.position.set(1200, 1100, 1200);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = Math.PI * 0.49;
+controls.minDistance = 30;
+controls.maxDistance = 10000;
+
+const ambient = new THREE.AmbientLight(0x4a5878, 0.7);
+scene.add(ambient);
+const sun = new THREE.DirectionalLight(0xffd9a0, 1.1);
+sun.position.set(2000, 3000, 1500);
+scene.add(sun);
+const fill = new THREE.DirectionalLight(0x6080ff, 0.3);
+fill.position.set(-1500, 1000, -2000);
+scene.add(fill);
+
+// ===================== GROUND + GRID =====================
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x0d1218, roughness: 0.95, metalness: 0 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(20000, 20000), groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.y = -0.5;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(20000, 100, 0x1a2230, 0x11161e);
+scene.add(grid);
+
+// Group containers
+const gBasemap = new THREE.Group(); scene.add(gBasemap);
+const gOSM = new THREE.Group(); scene.add(gOSM);
+const gParcels = new THREE.Group(); scene.add(gParcels);
+const gTopo = new THREE.Group(); scene.add(gTopo);
+const gPCD = new THREE.Group(); scene.add(gPCD);
+const gProjects = new THREE.Group(); scene.add(gProjects);
+const gIFC = new THREE.Group(); scene.add(gIFC);
+const gPhotos = new THREE.Group(); scene.add(gPhotos);
+
+// ===================== OSM BASEMAP (raster tiles) =====================
+function lon2tile(lon, z) { return Math.floor((lon + 180) / 360 * Math.pow(2, z)); }
+function lat2tile(lat, z) {
+  const r = lat * Math.PI / 180;
+  return Math.floor((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2 * Math.pow(2, z));
+}
+function tile2lon(x, z) { return x / Math.pow(2, z) * 360 - 180; }
+function tile2lat(y, z) {
+  const n = Math.PI - 2 * Math.PI * y / Math.pow(2, z);
+  return 180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)));
+}
+function loadBasemap() {
+  gBasemap.clear();
+  const z = 16, span = 3; // (2*span+1)^2 tiles
+  const cx = lon2tile(state.centerLon, z), cy = lat2tile(state.centerLat, z);
+  const loader = new THREE.TextureLoader();
+  loader.crossOrigin = 'anonymous';
+  let done = 0, total = (2 * span + 1) ** 2;
+  showLoading('CARGANDO BASEMAP OSM...');
+  for (let dx = -span; dx <= span; dx++) {
+    for (let dy = -span; dy <= span; dy++) {
+      const tx = cx + dx, ty = cy + dy;
+      const lonL = tile2lon(tx, z), lonR = tile2lon(tx + 1, z);
+      const latT = tile2lat(ty, z), latB = tile2lat(ty + 1, z);
+      const a = latLonToLocal(latT, lonL), b = latLonToLocal(latB, lonR);
+      const w = Math.abs(b.x - a.x), d = Math.abs(b.z - a.z);
+      const cxp = (a.x + b.x) / 2, czp = (a.z + b.z) / 2;
+      const url = `https://tile.openstreetmap.org/${z}/${tx}/${ty}.png`;
+      loader.load(url, (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace;
+        const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, opacity: 0.92 });
+        const plane = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+        plane.rotation.x = -Math.PI / 2;
+        plane.position.set(cxp, 0.05, czp);
+        gBasemap.add(plane);
+        if (++done >= total) hideLoading();
+      }, undefined, () => { if (++done >= total) hideLoading(); });
+    }
+  }
+  state.basemapLoaded = true;
+}
+
+// ===================== OSM BUILDINGS (Overpass) =====================
+async function loadOSMBuildings() {
+  showLoading('CONSULTANDO OPENSTREETMAP...');
+  const bbox = `${state.centerLat - 0.015},${state.centerLon - 0.018},${state.centerLat + 0.015},${state.centerLon + 0.018}`;
+  const query = `[out:json][timeout:25];(way[building](${bbox}););out geom;`;
+  try {
+    const res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(query) });
+    const data = await res.json();
+    showLoading(`PROCESANDO ${data.elements.length} EDIFICIOS...`);
+    gOSM.clear();
+    let bldCount = 0;
+    for (const el of data.elements) {
+      if (el.type !== 'way' || !el.geometry) continue;
+      const tags = el.tags || {};
+      if (!tags.building) continue;
+      const pts = el.geometry.map(p => latLonToLocal(p.lat, p.lon));
+      const shape = new THREE.Shape();
+      shape.moveTo(pts[0].x, -pts[0].z);
+      for (let i = 1; i < pts.length; i++) shape.lineTo(pts[i].x, -pts[i].z);
+      const levels = parseInt(tags['building:levels']) || 3;
+      const height = parseFloat(tags.height) || levels * 3;
+      try {
+        const geom = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false });
+        geom.rotateX(-Math.PI / 2); // shape(x,-z)->world(x, h, z)
+        const mat = new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.85, metalness: 0.1, transparent: true, opacity: 0.82 });
+        const mesh = new THREE.Mesh(geom, mat);
+        gOSM.add(mesh);
+        const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geom), new THREE.LineBasicMaterial({ color: 0x3a4558, transparent: true, opacity: 0.3 }));
+        gOSM.add(edges);
+        bldCount++;
+      } catch (e) { /* skip */ }
+    }
+    hideLoading();
+    toast(`${bldCount} edificaciones OSM cargadas`, 'ok');
+    updateObjCount();
+  } catch (e) {
+    hideLoading();
+    toast('Error OSM: ' + e.message, 'err');
+  }
+}
+
+// ===================== CATASTRO WFS (terrenos) =====================
+function wfsGetFeatureUrl(params) {
+  const base = {
+    service: 'WFS', version: '2.0.0', request: 'GetFeature',
+    typeNames: WFS_LAYER, outputFormat: 'application/json',
+    srsName: 'EPSG:4326', propertyName: WFS_PROPS,
+  };
+  const all = Object.assign(base, params);
+  return WFS_BASE + '?' + Object.entries(all).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+}
+
+// WFS genérico -> array de features (para capas del POT)
+async function wfsJson(layer, props, cql, count = 10) {
+  const url = WFS_BASE + '?' + Object.entries({
+    service: 'WFS', version: '2.0.0', request: 'GetFeature', typeNames: layer,
+    outputFormat: 'application/json', srsName: 'EPSG:4326', propertyName: props,
+    count, CQL_FILTER: cql,
+  }).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
+  const res = await fetch(url);
+  const data = await res.json();
+  return data.features || [];
+}
+const comma2num = (v) => (v == null || v === '') ? null : parseFloat(String(v).replace(',', '.'));
+
+// point-in-polygon (ray casting) sobre el anillo exterior; soporta Multi/Polygon en EPSG:4326
+function pointInFeature(feature, lon, lat) {
+  const g = feature.geometry; if (!g) return false;
+  const polys = g.type === 'MultiPolygon' ? g.coordinates : (g.type === 'Polygon' ? [g.coordinates] : []);
+  for (const poly of polys) {
+    const ring = poly[0]; let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const xi = ring[i][0], yi = ring[i][1], xj = ring[j][0], yj = ring[j][1];
+      if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    if (inside) return true;
+  }
+  return false;
+}
+function pickContaining(feats, c) { return feats.find(f => pointInFeature(f, c.lon, c.lat)) || feats[0] || null; }
+
+// ===================== POT: índice de construcción básico / adicional + tratamiento =====================
+async function fetchPOT(centroid, areaTerreno) {
+  const box = $('pot-box'); if (!box) return;
+  box.innerHTML = '<div class="hint">Consultando POT (edificabilidad)…</div>';
+  const d = 0.0006;
+  const cql = `BBOX(the_geom,${centroid.lon - d},${centroid.lat - d},${centroid.lon + d},${centroid.lat + d},'EPSG:4326')`;
+  try {
+    const [edi, tra] = await Promise.all([
+      wfsJson('pot_2014:nur_edificabilidad_icb', 'icb,ica,the_geom', cql),
+      wfsJson('pot_2014:nur_tratamientos_urbanisticos', 'codigo,tratamient,the_geom', cql),
+    ]);
+    const ef = pickContaining(edi, centroid);
+    const tf = pickContaining(tra, centroid);
+    const icb = ef ? comma2num(ef.properties.icb) : null;
+    const ica = ef ? comma2num(ef.properties.ica) : null;
+    if (state.selectedParcel) { state.selectedParcel.icb = icb; state.selectedParcel.ica = ica; }
+    const area = areaTerreno || 0;
+    const mBas = (icb != null && area) ? Math.round(area * icb) : null;
+    const mAdi = (ica != null && area) ? Math.round(area * ica) : null;
+    const mTot = (mBas != null || mAdi != null) ? ((mBas || 0) + (mAdi || 0)) : null;
+    const trat = tf ? `${tf.properties.codigo || ''} · ${tf.properties.tratamient || ''}` : '—';
+    box.innerHTML = `
+      <div class="pot">
+        <div class="pot-row"><span class="pk">Índice constr. BÁSICO (ICB)</span><span class="pv">${icb != null ? icb.toFixed(2) : '—'}</span></div>
+        <div class="pot-row"><span class="pk">Índice constr. ADICIONAL (ICA)</span><span class="pv adi">${ica != null ? ica.toFixed(2) : '—'}</span></div>
+        <div class="pot-row"><span class="pk">Tratamiento urbanístico</span><span class="pv small">${trat}</span></div>
+        ${area ? `<div class="pot-sep"></div>
+        <div class="pot-row"><span class="pk">Área máx. básica</span><span class="pv">${mBas != null ? mBas.toLocaleString() + ' m²' : '—'}</span></div>
+        <div class="pot-row"><span class="pk">Área máx. adicional</span><span class="pv adi">${mAdi != null ? mAdi.toLocaleString() + ' m²' : '—'}</span></div>
+        <div class="pot-row total"><span class="pk">Edificabilidad máx. TOTAL</span><span class="pv">${mTot != null ? mTot.toLocaleString() + ' m²' : '—'}</span></div>` : ''}
+      </div>
+      <div class="hint">Fuente POT 2014 · <b>nur_edificabilidad_icb</b> / <b>nur_tratamientos_urbanisticos</b>. ICA requiere pago de plusvalía/mayor edificabilidad.</div>`;
+  } catch (e) {
+    box.innerHTML = '<div class="hint">No se pudo consultar el POT: ' + e.message + '</div>';
+  }
+}
+
+// Convierte una MultiPolygon [lon,lat] a datos de dibujo local
+function ringToLocal(ring) { return ring.map(([lon, lat]) => latLonToLocal(lat, lon)); }
+function polyCentroid(ring) {
+  let x = 0, y = 0; const n = ring.length;
+  for (const [lon, lat] of ring) { x += lon; y += lat; }
+  return { lon: x / n, lat: y / n };
+}
+
+function renderParcel(feature) {
+  const id = feature.id;
+  if (state.parcels.has(id)) return; // ya dibujado
+  const g = feature.geometry;
+  if (!g) return;
+  const polys = g.type === 'MultiPolygon' ? g.coordinates : (g.type === 'Polygon' ? [g.coordinates] : []);
+  if (!polys.length) return;
+
+  const group = new THREE.Group();
+  const outerRing = polys[0][0];
+  const fillMat = new THREE.MeshStandardMaterial({ color: 0x3a6ea5, roughness: 0.9, metalness: 0, transparent: true, opacity: 0.35, side: THREE.DoubleSide });
+  const lineMat = new THREE.LineBasicMaterial({ color: 0x6fb3ff, transparent: true, opacity: 0.75 });
+
+  for (const poly of polys) {
+    const outer = ringToLocal(poly[0]);
+    const shape = new THREE.Shape();
+    shape.moveTo(outer[0].x, -outer[0].z);
+    for (let i = 1; i < outer.length; i++) shape.lineTo(outer[i].x, -outer[i].z);
+    for (let h = 1; h < poly.length; h++) {
+      const hole = ringToLocal(poly[h]);
+      const path = new THREE.Path();
+      path.moveTo(hole[0].x, -hole[0].z);
+      for (let i = 1; i < hole.length; i++) path.lineTo(hole[i].x, -hole[i].z);
+      shape.holes.push(path);
+    }
+    const geom = new THREE.ShapeGeometry(shape);
+    geom.rotateX(-Math.PI / 2); // shape(x,-z)->world(x,0,z)
+    const mesh = new THREE.Mesh(geom, fillMat);
+    mesh.position.y = 0.2;
+    mesh.userData = { type: 'parcel', id };
+    group.add(mesh);
+    // contorno
+    const linePts = outer.map(p => new THREE.Vector3(p.x, 0.35, p.z));
+    linePts.push(linePts[0].clone());
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(linePts), lineMat));
+  }
+  gParcels.add(group);
+  const centroid = polyCentroid(outerRing);
+  state.parcels.set(id, { props: feature.properties, group, fillMat, lineMat, centroid, ring: outerRing });
+  $('parcel-count').textContent = state.parcels.size;
+}
+
+async function fetchParcels(cqlOrParams, { clear = false, fit = false } = {}) {
+  const params = typeof cqlOrParams === 'string' ? { CQL_FILTER: cqlOrParams, count: 2000 } : cqlOrParams;
+  const url = wfsGetFeatureUrl(params);
+  const res = await fetch(url);
+  const txt = await res.text();
+  let data;
+  try { data = JSON.parse(txt); }
+  catch (e) { throw new Error('Respuesta no válida del WFS: ' + txt.slice(0, 120)); }
+  if (data.exceptions || data.exceptionReport) throw new Error('WFS: ' + JSON.stringify(data).slice(0, 160));
+  if (clear) { gParcels.clear(); state.parcels.clear(); $('parcel-count').textContent = 0; }
+  const feats = data.features || [];
+  for (const f of feats) renderParcel(f);
+  return feats;
+}
+
+async function loadParcelsByView() {
+  const c = localToLatLon(controls.target.x, controls.target.z);
+  const r = state.parcelRadius;
+  const dLat = r / R * 180 / Math.PI;
+  const dLon = r / (R * Math.cos(c.lat * Math.PI / 180)) * 180 / Math.PI;
+  const w = c.lon - dLon, e = c.lon + dLon, s = c.lat - dLat, n = c.lat + dLat;
+  const cql = `BBOX(the_geom,${w},${s},${e},${n},'EPSG:4326')`;
+  showLoading('CONSULTANDO CATASTRO IDESC...');
+  try {
+    const feats = await fetchParcels(cql, { clear: true });
+    hideLoading();
+    toast(`${feats.length} terrenos catastrales cargados (radio ${r} m)`, feats.length ? 'ok' : '');
+    updateObjCount();
+  } catch (err) {
+    hideLoading();
+    toast('Error catastro: ' + err.message, 'err');
+  }
+}
+
+function escapeCql(s) { return s.replace(/'/g, "''"); }
+
+async function searchParcel() {
+  const raw = $('prd-search').value.trim();
+  if (!raw) { toast('Escribe un número predial o dirección', 'err'); return; }
+  const nospace = raw.replace(/\s+/g, '');
+  // Se usan igualdad o prefijo (indexables): el comodín inicial %...% haría full-scan de 736k predios.
+  let cql;
+  if (/^\d+$/.test(nospace)) {
+    // NPN numérico (30 díg.) — exacto si completo, si no prefijo
+    const n = escapeCql(nospace);
+    cql = nospace.length >= 30 ? `npn='${n}'` : `npn LIKE '${n}%'`;
+  } else if (/^[A-Za-z0-9\-.]+$/.test(nospace)) {
+    // Código predial local (numepred), p.ej. C002600260000
+    const u = escapeCql(nospace.toUpperCase());
+    cql = `numepred LIKE '${u}%' OR npn LIKE '${u}%'`;
+  } else {
+    // Dirección: prefijo (direpred está en mayúsculas en la fuente)
+    cql = `direpred LIKE '${escapeCql(raw.toUpperCase())}%'`;
+  }
+  showLoading('BUSCANDO LOTE EN CATASTRO...');
+  try {
+    const feats = await fetchParcels({ CQL_FILTER: cql, count: 20 });
+    hideLoading();
+    if (!feats.length) { toast('Sin resultados para: ' + raw, 'err'); return; }
+    // Selecciona el primero, centra la vista en él
+    const f = feats[0];
+    recenterOn(f);
+    selectParcelById(f.id);
+    toast(`${feats.length} predio(s) encontrado(s). Mostrando el primero.`, 'ok');
+    updateObjCount();
+  } catch (err) {
+    hideLoading();
+    toast('Error búsqueda: ' + err.message, 'err');
+  }
+}
+
+// Recentra el origen ENU en el predio (para precisión local) y redibuja todo
+function recenterOn(feature) {
+  const outer = (feature.geometry.type === 'MultiPolygon' ? feature.geometry.coordinates[0][0] : feature.geometry.coordinates[0]);
+  const c = polyCentroid(outer);
+  state.centerLat = c.lat; state.centerLon = c.lon;
+  $('hud-center').textContent = `${c.lat.toFixed(5)}°, ${c.lon.toFixed(5)}°`;
+  // Reorigen: limpia terrenos previos y redibuja el predio buscado en el nuevo centro
+  gParcels.clear(); state.parcels.clear(); $('parcel-count').textContent = 0;
+  renderParcel(feature);
+  // Re-anclar propiedades guardadas / IFC / nubes al nuevo origen
+  rebuildProjects();
+  rebuildPhotos();
+  if (state.basemapLoaded) loadBasemap();
+  controls.target.set(0, 0, 0);
+  camera.position.set(350, 320, 350);
+}
+
+function selectParcelById(id) {
+  // resalta y muestra info
+  for (const [pid, p] of state.parcels) {
+    const sel = pid === id;
+    p.fillMat.color.set(sel ? 0xff5252 : 0x3a6ea5);
+    p.fillMat.opacity = sel ? 0.5 : 0.35;
+    p.lineMat.color.set(sel ? 0xff7b7b : 0x6fb3ff);
+  }
+  const p = state.parcels.get(id);
+  if (!p) return;
+  state.selectedParcel = { props: p.props, centroid: p.centroid, ring: p.ring };
+  showPredioInfo(p.props, p.centroid);
+}
+
+function showPredioInfo(props, centroid) {
+  const el = $('predio-info');
+  const usoLink = props.uso_suelo ? `<a href="${props.uso_suelo}" target="_blank" rel="noopener">Consultar uso de suelo ↗</a>` : '';
+  el.innerHTML = `
+    <div class="predio">
+      <div class="npn">${props.npn || '—'}</div>
+      <div class="kv">
+        <span class="k">N° predial</span><span class="val">${props.numepred || '—'}</span>
+        <span class="k">Dirección</span><span class="val">${props.direpred || '—'}</span>
+        <span class="k">Barrio</span><span class="val">${props.nom_barrio || '—'}</span>
+        <span class="k">Comuna</span><span class="val">${props.comuna || '—'}</span>
+        <span class="k">Mz / Ter</span><span class="val">${(props.manzana||'—')} / ${(props.terreno||'—')}</span>
+        <span class="k">Área</span><span class="val">${props.shape_area ? Math.round(props.shape_area).toLocaleString() + ' m²' : '—'}</span>
+        <span class="k">Lat/Lon</span><span class="val">${centroid.lat.toFixed(6)}, ${centroid.lon.toFixed(6)}</span>
+      </div>
+      ${usoLink}
+      <div id="pot-box"><div class="hint">Consultando POT…</div></div>
+      <div class="actions">
+        <button class="btn primary" id="btn-save-predio"><span class="ic">★</span> Guardar</button>
+        <button class="btn" id="btn-fly-predio"><span class="ic">◎</span> Centrar</button>
+      </div>
+      <button class="btn cyan" id="btn-masas"><span class="ic">◱</span> Diseñar masas (Revit) →</button>
+    </div>`;
+  $('btn-save-predio').onclick = () => savePredioAsProperty(props, centroid);
+  $('btn-fly-predio').onclick = () => {
+    const l = latLonToLocal(centroid.lat, centroid.lon);
+    controls.target.set(l.x, 0, l.z);
+    camera.position.set(l.x + 250, 220, l.z + 250);
+  };
+  $('btn-masas').onclick = () => openMassing(props, centroid);
+  fetchPOT(centroid, props.shape_area ? Math.round(props.shape_area) : 0);
+}
+
+// ===================== ESTUDIOS DE MASAS (dashboard) =====================
+const STUDIES_KEY = 'cali_massing_studies';
+function readStudies() { try { return JSON.parse(localStorage.getItem(STUDIES_KEY) || '{}'); } catch (e) { return {}; } }
+function renderStudies() {
+  const list = $('study-list'); const studies = readStudies(); const keys = Object.keys(studies);
+  if (!keys.length) { list.innerHTML = '<div class="empty">Sin estudios. Crea uno en "Diseñar masas" y guárdalo.</div>'; return; }
+  list.innerHTML = '';
+  for (const k of keys) {
+    const s = studies[k]; const p = s.predio || {}; const r = s.resumen || {};
+    const card = document.createElement('div');
+    card.className = 'project-card'; card.style.borderLeftColor = '#9c6bff';
+    card.innerHTML = `
+      <span class="del" title="Eliminar">✕</span>
+      <div class="name">${p.direpred || p.npn || k}</div>
+      <div class="meta"><span>${(s.masses||[]).length} masas</span> · <span>${(s.levels||[]).length} niveles</span> · <span>${(s.walls||[]).length} muros</span></div>
+      <div class="coords">Área constr. ${r.area_construida ? r.area_construida.toLocaleString() : '—'} m² · índice ${r.indice != null ? r.indice : '—'} · ${s.savedAt ? new Date(s.savedAt).toLocaleDateString('es-CO') : ''}</div>
+      <div class="badges"><span class="badge on" style="color:#9c6bff;border-color:#9c6bff">◱ ABRIR ESTUDIO</span></div>`;
+    card.querySelector('.del').onclick = (e) => { e.stopPropagation(); const all = readStudies(); delete all[k]; localStorage.setItem(STUDIES_KEY, JSON.stringify(all)); renderStudies(); toast('Estudio eliminado', ''); };
+    card.onclick = () => openStudy(k);
+    list.appendChild(card);
+  }
+}
+function openStudy(k) {
+  const s = readStudies()[k]; if (!s || !s.predio) { toast('Estudio sin geometría de predio', 'err'); return; }
+  const payload = Object.assign({}, s.predio, { study: { levels: s.levels, walls: s.walls, masses: s.masses } });
+  try { localStorage.setItem('cali_massing_handoff', JSON.stringify(payload)); } catch (e) {}
+  window.open('masas.html', '_blank');
+}
+
+// Abre la página de masas con la geometría del terreno + normativa (handoff por localStorage)
+function openMassing(props, centroid) {
+  const ring = state.selectedParcel && state.selectedParcel.ring ? state.selectedParcel.ring : null;
+  const payload = {
+    npn: props.npn || '', numepred: props.numepred || '', direpred: props.direpred || '',
+    nom_barrio: props.nom_barrio || '', comuna: props.comuna || '',
+    area: props.shape_area ? Math.round(props.shape_area) : 0,
+    icb: state.selectedParcel ? state.selectedParcel.icb : null,
+    ica: state.selectedParcel ? state.selectedParcel.ica : null,
+    centroid, ring,
+  };
+  try { localStorage.setItem('cali_massing_handoff', JSON.stringify(payload)); } catch (e) {}
+  window.open('masas.html', '_blank');
+}
+
+// ===================== PROPIEDADES (guardadas + persistencia) =====================
+function savePredioAsProperty(props, centroid) {
+  const exists = state.projects.find(p => p.npn && p.npn === props.npn);
+  if (exists) { toast('Esa propiedad ya está guardada', ''); selectProject(exists.id); return; }
+  const prj = {
+    id: 'pr_' + (props.npn || Date.now()),
+    name: props.direpred || props.numepred || 'Predio ' + (props.npn || ''),
+    npn: props.npn || '', numepred: props.numepred || '', direpred: props.direpred || '',
+    nom_barrio: props.nom_barrio || '', comuna: props.comuna || '',
+    lat: centroid.lat, lon: centroid.lon,
+    area: props.shape_area ? Math.round(props.shape_area) : 0,
+    icb: state.selectedParcel ? state.selectedParcel.icb : null,
+    ica: state.selectedParcel ? state.selectedParcel.ica : null,
+    h: 30, stage: 'Diseño', saved: true, ifc: false, pcd: false,
+    ring: state.selectedParcel ? state.selectedParcel.ring : null,
+  };
+  addProject(prj);
+  persistProperties();
+  toast('Propiedad guardada: ' + prj.name, 'ok');
+}
+
+function persistProperties() {
+  const data = state.projects.filter(p => p.saved).map(p => ({
+    id: p.id, name: p.name, npn: p.npn, numepred: p.numepred, direpred: p.direpred,
+    nom_barrio: p.nom_barrio, comuna: p.comuna, lat: p.lat, lon: p.lon,
+    area: p.area, h: p.h, stage: p.stage, ring: p.ring,
+  }));
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+}
+
+function loadPersistedProperties() {
+  let data = [];
+  try { data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) {}
+  for (const d of data) { d.saved = true; d.ifc = false; d.pcd = false; addProject(d); }
+  if (data.length) toast(`${data.length} propiedad(es) guardada(s) restaurada(s)`, '');
+}
+
+// ===================== PROYECTOS / MARCADORES =====================
+function addProject(prj) {
+  const local = latLonToLocal(prj.lat, prj.lon);
+  prj.x = local.x; prj.z = local.z; prj.y = (prj.h || 40);
+  prj.id = prj.id || ('p' + Date.now() + Math.floor(Math.random() * 1000));
+
+  const isFocal = state.focalId === prj.id;
+  const sphere = new THREE.Mesh(
+    new THREE.SphereGeometry(isFocal ? 18 : 13, 24, 24),
+    new THREE.MeshStandardMaterial({ color: isFocal ? 0xff5252 : 0xf4b942, emissive: isFocal ? 0xff2020 : 0xc88820, emissiveIntensity: 0.4, roughness: 0.3, metalness: 0.6 })
+  );
+  sphere.position.set(prj.x, prj.y, prj.z);
+  sphere.userData = { type: 'project', id: prj.id };
+  gProjects.add(sphere);
+
+  const line = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(prj.x, 0, prj.z), new THREE.Vector3(prj.x, prj.y, prj.z)]),
+    new THREE.LineBasicMaterial({ color: isFocal ? 0xff5252 : 0xf4b942, transparent: true, opacity: 0.5 })
+  );
+  gProjects.add(line);
+
+  const ring = new THREE.Mesh(new THREE.RingGeometry(6, 9, 28), new THREE.MeshBasicMaterial({ color: isFocal ? 0xff5252 : 0xf4b942, transparent: true, opacity: 0.6, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(prj.x, 0.4, prj.z);
+  gProjects.add(ring);
+
+  prj.sphere = sphere;
+  state.projects.push(prj);
+  if (!state.focalId) state.focalId = prj.id;
+  refreshProjectList(); refreshMetrics(); updateObjCount();
+}
+
+function rebuildProjects() {
+  gProjects.clear();
+  const old = state.projects.map(p => { const c = { ...p }; delete c.sphere; delete c.x; delete c.z; delete c.y; return c; });
+  state.projects = [];
+  for (const p of old) addProject(p);
+}
+
+function selectProject(id) {
+  state.selectedId = id; state.focalId = id;
+  rebuildProjects(); refreshProjectList();
+  const p = state.projects.find(x => x.id === id);
+  if (p) {
+    flyTo(p);
+    if (p.npn) showPredioInfo({ npn: p.npn, numepred: p.numepred, direpred: p.direpred, nom_barrio: p.nom_barrio, comuna: p.comuna, shape_area: p.area }, { lat: p.lat, lon: p.lon });
+  }
+}
+
+function deleteProject(id) {
+  const p = state.projects.find(x => x.id === id);
+  state.projects = state.projects.filter(x => x.id !== id);
+  if (state.focalId === id) state.focalId = state.projects[0] ? state.projects[0].id : null;
+  if (state.selectedId === id) state.selectedId = null;
+  rebuildProjects(); refreshProjectList(); refreshMetrics();
+  if (p && p.saved) persistProperties();
+}
+
+function refreshProjectList() {
+  const list = $('prj-list');
+  if (state.projects.length === 0) { list.innerHTML = '<div class="empty">Sin propiedades. Busca un predio y guárdalo.</div>'; return; }
+  list.innerHTML = '';
+  for (const p of state.projects) {
+    const card = document.createElement('div');
+    card.className = 'project-card' + (p.id === state.focalId ? ' focal' : '') + (p.id === state.selectedId ? ' selected' : '');
+    card.innerHTML = `
+      <span class="del" title="Eliminar">✕</span>
+      <div class="name">${p.name}</div>
+      <div class="meta"><span>${p.area || '-'} m²</span> · <span>${p.h || '-'} m</span> · <span>${p.stage || '-'}</span></div>
+      ${p.npn ? `<div class="coords">NPN ${p.npn}</div>` : ''}
+      <div class="coords">${p.lat.toFixed(5)}°, ${p.lon.toFixed(5)}°</div>
+      <div class="badges">
+        <span class="badge ${p.saved ? 'on' : ''}">${p.saved ? '★ GUARDADA' : 'TEMP'}</span>
+        <span class="badge ifc ${p.ifc ? 'on' : ''}">IFC</span>
+        <span class="badge pcd ${p.pcd ? 'on' : ''}">NUBE</span>
+      </div>`;
+    card.querySelector('.del').onclick = (e) => { e.stopPropagation(); deleteProject(p.id); };
+    card.onclick = () => selectProject(p.id);
+    list.appendChild(card);
+  }
+}
+
+function refreshMetrics() {
+  $('m-prj').textContent = state.projects.length;
+  let area = 0;
+  for (const p of state.projects) area += (p.area || 0);
+  $('m-area').textContent = area.toLocaleString();
+  $('m-ifc').textContent = state.ifcCount;
+  $('m-pcd').textContent = state.pcdCount;
+}
+
+function flyTo(p) {
+  const target = new THREE.Vector3(p.x, p.y, p.z);
+  controls.target.copy(target);
+  const dir = new THREE.Vector3(1, 0.7, 1).normalize();
+  camera.position.copy(target.clone().add(dir.multiplyScalar(350)));
+}
+
+// ===================== IFC LOADER =====================
+let IFCLoaderInstance = null;
+async function ensureIFCLoader() {
+  if (IFCLoaderInstance) return IFCLoaderInstance;
+  try {
+    const mod = await import('https://cdn.jsdelivr.net/npm/web-ifc-three@0.0.125/IFCLoader.js');
+    IFCLoaderInstance = new mod.IFCLoader();
+    await IFCLoaderInstance.ifcManager.setWasmPath('https://cdn.jsdelivr.net/npm/web-ifc@0.0.50/');
+    return IFCLoaderInstance;
+  } catch (e) { console.warn('IFCLoader no disponible:', e); return null; }
+}
+
+function requireSelected() {
+  const p = state.projects.find(x => x.id === state.selectedId);
+  if (!p) { toast('Selecciona primero una propiedad en el panel derecho', 'err'); return null; }
+  return p;
+}
+
+async function loadIFC(file) {
+  const prj = requireSelected();
+  if (!prj) return;
+  showLoading('CARGANDO IFC...');
+  const loader = await ensureIFCLoader();
+  if (!loader) { hideLoading(); placeholderIFC(prj); toast('Motor IFC no disponible: placeholder colocado', 'err'); return; }
+  const url = URL.createObjectURL(file);
+  loader.load(url, (model) => {
+    const box = new THREE.Box3().setFromObject(model);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    model.position.sub(center);
+    model.position.x += prj.x; model.position.z += prj.z; model.position.y += size.y / 2;
+    model.userData.ownerId = prj.id;
+    gIFC.add(model);
+    state.ifcCount++; prj.ifc = true;
+    hideLoading(); refreshMetrics(); refreshProjectList(); updateObjCount();
+    toast('IFC anclado a: ' + prj.name, 'ok');
+    URL.revokeObjectURL(url);
+  }, (xhr) => { if (xhr.total) showLoading(`IFC: ${Math.round(xhr.loaded / xhr.total * 100)}%`); },
+     (err) => { hideLoading(); console.error(err); placeholderIFC(prj); toast('Error IFC: placeholder colocado', 'err'); });
+}
+
+function placeholderIFC(prj) {
+  const geom = new THREE.BoxGeometry(30, prj.h || 40, 24);
+  const box = new THREE.Mesh(geom, new THREE.MeshStandardMaterial({ color: 0x4dd0e1, transparent: true, opacity: 0.55, roughness: 0.4, metalness: 0.3 }));
+  box.position.set(prj.x, (prj.h || 40) / 2, prj.z);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(geom), new THREE.LineBasicMaterial({ color: 0x4dd0e1 }));
+  edges.position.copy(box.position);
+  gIFC.add(box); gIFC.add(edges);
+  state.ifcCount++; prj.ifc = true;
+  refreshMetrics(); refreshProjectList(); updateObjCount();
+}
+
+// ===================== NUBE DE PUNTOS (por propiedad) =====================
+function loadPointCloud(file) {
+  const prj = requireSelected();
+  if (!prj) return;
+  showLoading('PROCESANDO NUBE DE PUNTOS...');
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const rows = text.split(/\r?\n/);
+    const pts = []; let hasRGB = false;
+    for (const line of rows) {
+      if (!line || /[a-df-zA-DF-Z]/.test(line.replace(/[eE][+-]?\d/g, ''))) { /* skip headers */ }
+      const nums = line.trim().split(/[\s,;]+/).map(Number);
+      if (nums.length >= 3 && nums.slice(0, 3).every(n => !isNaN(n))) {
+        const rec = { x: nums[0], y: nums[1], z: nums[2] };
+        if (nums.length >= 6 && nums.slice(3, 6).every(n => !isNaN(n))) { rec.r = nums[3]; rec.g = nums[4]; rec.b = nums[5]; hasRGB = true; }
+        pts.push(rec);
+      }
+    }
+    if (!pts.length) { hideLoading(); toast('No se hallaron puntos (X Y Z por línea)', 'err'); return; }
+    let cx = 0, cy = 0, cz = 0, minZ = Infinity, maxZ = -Infinity;
+    for (const p of pts) { cx += p.x; cy += p.y; cz += p.z; if (p.z < minZ) minZ = p.z; if (p.z > maxZ) maxZ = p.z; }
+    cx /= pts.length; cy /= pts.length; cz /= pts.length;
+    const range = (maxZ - minZ) || 1;
+    const positions = [], colors = [];
+    const cmax = hasRGB ? (pts.some(p => p.r > 1) ? 255 : 1) : 1;
+    for (const p of pts) {
+      // X este, Y norte(civil) -> -Z three, Z elevación -> Y three; anclado al predio
+      positions.push((p.x - cx) + prj.x, (p.z - cz), -((p.y - cy)) + prj.z);
+      if (hasRGB) colors.push(p.r / cmax, p.g / cmax, p.b / cmax);
+      else { const t = (p.z - minZ) / range; colors.push(0.35 + t * 0.4, 0.7 + t * 0.2, 0.4 + t * 0.1); }
+    }
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    const cloud = new THREE.Points(geom, new THREE.PointsMaterial({ size: 2, vertexColors: true, sizeAttenuation: true }));
+    cloud.userData.ownerId = prj.id;
+    gPCD.add(cloud);
+    state.pcdCount++; prj.pcd = true;
+    hideLoading(); refreshMetrics(); refreshProjectList(); updateObjCount();
+    toast(`${pts.length.toLocaleString()} puntos anclados a: ${prj.name}`, 'ok');
+  };
+  reader.readAsText(file);
+}
+
+// ===================== TOPO (LandXML / DXF / CSV) =====================
+function loadTopoFile(file) {
+  showLoading('PROCESANDO TOPOGRAFÍA...');
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result; const name = file.name.toLowerCase();
+    let points = [];
+    if (name.endsWith('.xml')) {
+      const doc = new DOMParser().parseFromString(text, 'application/xml');
+      const P = doc.getElementsByTagName('P');
+      for (let i = 0; i < P.length; i++) {
+        const c = P[i].textContent.trim().split(/\s+/).map(parseFloat);
+        if (c.length >= 3) points.push([c[1], c[2], c[0]]); // E,elev,N? -> guardamos N,E,Z abajo
+      }
+      points = points.map(([e_, z_, n_]) => [n_, e_, z_]); // normaliza a N,E,Z
+    } else if (name.endsWith('.csv') || name.endsWith('.txt')) {
+      for (const line of text.split(/\r?\n/)) {
+        const nums = line.split(/[,;\t\s]+/).map(parseFloat).filter(n => !isNaN(n));
+        if (nums.length >= 3) points.push([nums[nums.length - 3], nums[nums.length - 2], nums[nums.length - 1]]);
+      }
+    } else if (name.endsWith('.dxf')) {
+      const lines = text.split(/\r?\n/); let i = 0;
+      while (i < lines.length) {
+        if (lines[i].trim() === 'POINT' || lines[i].trim() === '3DFACE') {
+          let x, y, z;
+          while (i < lines.length && lines[i].trim() !== '0') {
+            const code = lines[i].trim(), val = lines[i + 1] ? lines[i + 1].trim() : '';
+            if (code === '10') x = parseFloat(val); if (code === '20') y = parseFloat(val); if (code === '30') z = parseFloat(val);
+            i += 2;
+          }
+          if (x !== undefined && y !== undefined && z !== undefined) points.push([y, x, z]);
+        } else i++;
+      }
+    }
+    if (!points.length) { hideLoading(); toast('Sin puntos en el archivo de topografía', 'err'); return; }
+    gTopo.clear();
+    let cN = 0, cE = 0, cZ = 0, minZ = Infinity, maxZ = -Infinity;
+    for (const [n, e_, z] of points) { cN += n; cE += e_; cZ += z; if (z < minZ) minZ = z; if (z > maxZ) maxZ = z; }
+    cN /= points.length; cE /= points.length; cZ /= points.length;
+    const range = (maxZ - minZ) || 1;
+    const pos = [], col = [];
+    for (const [n, e_, z] of points) { pos.push(e_ - cE, z - cZ, -(n - cN)); const t = (z - minZ) / range; col.push(0.4 + t * 0.4, 0.7 + t * 0.2, 0.4 + t * 0.1); }
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geom.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    gTopo.add(new THREE.Points(geom, new THREE.PointsMaterial({ size: 3, vertexColors: true, sizeAttenuation: true })));
+    hideLoading(); toast(`${points.length.toLocaleString()} puntos de topografía`, 'ok'); updateObjCount();
+  };
+  reader.readAsText(file);
+}
+
+// ===================== DEMO =====================
+function loadDemo() {
+  const demos = [
+    { name: 'Torre Granada Fase II', lat: 3.4516, lon: -76.5320, h: 80, area: 3500, stage: 'Coordinación' },
+    { name: 'Hospital Universitario Norte', lat: 3.4680, lon: -76.5400, h: 45, area: 8500, stage: 'Obra' },
+    { name: 'Edificio Corporativo San Fernando', lat: 3.4450, lon: -76.5280, h: 60, area: 5800, stage: 'Diseño' },
+    { name: 'Residencias El Peñón', lat: 3.4530, lon: -76.5380, h: 50, area: 6200, stage: 'Entregado' },
+    { name: 'Hotel Convención Valle', lat: 3.4400, lon: -76.5500, h: 70, area: 7800, stage: 'Coordinación' },
+  ];
+  for (let i = 0; i < demos.length; i++) { demos[i].id = 'p_demo_' + i + '_' + Date.now(); demos[i].saved = false; addProject(demos[i]); }
+  toast('Datos demo cargados', '');
+}
+
+// ===================== FOTOS GEOLOCALIZADAS (Telegram Bot + n8n) =====================
+// Coloca fotos en el mapa por las coordenadas del teléfono. El backend (n8n) expone un
+// endpoint JSON con [{lat, lon, url/photo_url, caption, date, id}] que aquí se sondea.
+const photoTexLoader = new THREE.TextureLoader(); photoTexLoader.crossOrigin = 'anonymous';
+
+function normalizePhoto(p, i) {
+  const lat = +(p.lat ?? p.latitude ?? (p.location && p.location.latitude));
+  const lon = +(p.lon ?? p.lng ?? p.longitude ?? (p.location && p.location.longitude));
+  const url = p.url || p.photo_url || p.photoUrl || p.image || p.file_url || '';
+  return { id: String(p.id ?? p.message_id ?? (url + i) ?? i), lat, lon, url, caption: p.caption || p.text || '', date: p.date || '' };
+}
+
+function addPhotoMarker(photo) {
+  if (!isFinite(photo.lat) || !isFinite(photo.lon) || !photo.url) return;
+  if (state.photos.find(x => x.id === photo.id)) return;
+  state.photos.push(photo);
+  const l = latLonToLocal(photo.lat, photo.lon);
+  // poste
+  const pole = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(l.x, 0, l.z), new THREE.Vector3(l.x, 60, l.z)]),
+    new THREE.LineBasicMaterial({ color: 0x9c6bff, transparent: true, opacity: 0.6 }));
+  pole.userData = { photoId: photo.id };
+  gPhotos.add(pole);
+  // sprite con la foto (billboard)
+  const mat = new THREE.SpriteMaterial({ color: 0xffffff });
+  const sprite = new THREE.Sprite(mat);
+  sprite.position.set(l.x, 78, l.z);
+  sprite.scale.set(46, 46, 1);
+  sprite.userData = { type: 'photo', id: photo.id, photo };
+  gPhotos.add(sprite);
+  photoTexLoader.load(photo.url, (tex) => {
+    tex.colorSpace = THREE.SRGBColorSpace; mat.map = tex; mat.needsUpdate = true;
+    const a = (tex.image && tex.image.width && tex.image.height) ? tex.image.width / tex.image.height : 1;
+    sprite.scale.set(46 * Math.max(a, 0.6), 46, 1);
+  });
+  // aro en el suelo
+  const ring = new THREE.Mesh(new THREE.RingGeometry(4, 6, 24), new THREE.MeshBasicMaterial({ color: 0x9c6bff, transparent: true, opacity: 0.7, side: THREE.DoubleSide }));
+  ring.rotation.x = -Math.PI / 2; ring.position.set(l.x, 0.3, l.z); ring.userData = { photoId: photo.id };
+  gPhotos.add(ring);
+  updateObjCount();
+}
+
+function rebuildPhotos() {
+  gPhotos.clear();
+  const all = state.photos.slice(); state.photos = [];
+  for (const p of all) addPhotoMarker(p);
+}
+
+function ingestPhotos(list) {
+  if (!Array.isArray(list)) { if (list && Array.isArray(list.photos)) list = list.photos; else return 0; }
+  let added = 0;
+  list.forEach((p, i) => { const n = normalizePhoto(p, i); const before = state.photos.length; addPhotoMarker(n); if (state.photos.length > before) added++; });
+  $('photo-count').textContent = state.photos.length;
+  return added;
+}
+
+async function pollPhotos(url) {
+  try {
+    const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const data = await res.json();
+    const added = ingestPhotos(data);
+    if (added) toast(`${added} foto(s) de Telegram ubicada(s) en el mapa`, 'ok');
+  } catch (e) { toast('Error consultando endpoint de fotos: ' + e.message, 'err'); }
+}
+
+function startPhotoPolling() {
+  const url = $('tg-endpoint').value.trim();
+  if (!url) { toast('Pega la URL del webhook de n8n (GET) que devuelve las fotos', 'err'); return; }
+  localStorage.setItem('cali_tg_endpoint', url);
+  stopPhotoPolling();
+  pollPhotos(url);
+  state.photoTimer = setInterval(() => pollPhotos(url), 15000);
+  $('btn-tg-connect').innerHTML = '<span class="ic">■</span> Desconectar (sondeando…)';
+  $('btn-tg-connect').classList.add('primary');
+  toast('Conectado a n8n. Envía una foto + ubicación al bot de Telegram.', '');
+}
+function stopPhotoPolling() {
+  if (state.photoTimer) { clearInterval(state.photoTimer); state.photoTimer = null; }
+  $('btn-tg-connect').innerHTML = '<span class="ic">◉</span> Conectar y sondear fotos';
+  $('btn-tg-connect').classList.remove('primary');
+}
+function focusPhotos() {
+  if (!state.photos.length) { toast('Aún no hay fotos', ''); return; }
+  const p = state.photos[state.photos.length - 1];
+  const l = latLonToLocal(p.lat, p.lon);
+  controls.target.set(l.x, 40, l.z); camera.position.set(l.x + 180, 150, l.z + 180);
+}
+// API global para inyección directa (p.ej. desde consola o un puente n8n)
+window.CaliViewer = { addPhoto: (p) => { ingestPhotos([p]); }, ingestPhotos };
+
+// ===================== RAYCASTER =====================
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+function setMouse(e) {
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+}
+canvas.addEventListener('click', (e) => {
+  setMouse(e); raycaster.setFromCamera(mouse, camera);
+  // Proyectos primero
+  const ph = raycaster.intersectObjects(gProjects.children, false);
+  for (const hit of ph) if (hit.object.userData.type === 'project') { selectProject(hit.object.userData.id); return; }
+  // Fotos de Telegram
+  const photoHits = raycaster.intersectObjects(gPhotos.children, false);
+  for (const hit of photoHits) if (hit.object.userData.type === 'photo') { const p = hit.object.userData.photo; toast(`📷 ${p.caption || 'Foto'} · ${p.lat.toFixed(5)}, ${p.lon.toFixed(5)}`, ''); window.open(p.url, '_blank'); return; }
+  // Luego parcels
+  const parcelMeshes = [];
+  gParcels.traverse(o => { if (o.userData && o.userData.type === 'parcel') parcelMeshes.push(o); });
+  const hits = raycaster.intersectObjects(parcelMeshes, false);
+  if (hits.length) selectParcelById(hits[0].object.userData.id);
+});
+canvas.addEventListener('mousemove', (e) => {
+  setMouse(e); raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObject(ground);
+  if (hits.length) {
+    const ll = localToLatLon(hits[0].point.x, hits[0].point.z);
+    $('cursor-coords').innerHTML = `<span class="lbl">LAT/LON</span><span class="v">${ll.lat.toFixed(6)}, ${ll.lon.toFixed(6)}</span>`;
+  }
+});
+
+// ===================== EVENTS =====================
+$('btn-osm').onclick = loadOSMBuildings;
+$('btn-load-view').onclick = loadParcelsByView;
+$('btn-search').onclick = searchParcel;
+$('prd-search').addEventListener('keydown', (e) => { if (e.key === 'Enter') searchParcel(); });
+$('prd-radius').oninput = (e) => { state.parcelRadius = +e.target.value; $('prd-radius-v').textContent = e.target.value + ' m'; };
+$('tg-parcels').onchange = (e) => gParcels.visible = e.target.checked;
+$('tg-grid').onchange = (e) => grid.visible = e.target.checked;
+$('tg-buildings').onchange = (e) => gOSM.visible = e.target.checked;
+$('tg-basemap').onchange = (e) => { gBasemap.visible = e.target.checked; if (e.target.checked && !state.basemapLoaded) loadBasemap(); };
+$('file-ifc').onchange = (e) => { if (e.target.files[0]) loadIFC(e.target.files[0]); e.target.value = ''; };
+$('file-pcd').onchange = (e) => { if (e.target.files[0]) loadPointCloud(e.target.files[0]); e.target.value = ''; };
+$('file-topo').onchange = (e) => { if (e.target.files[0]) loadTopoFile(e.target.files[0]); e.target.value = ''; };
+$('btn-tg-connect').onclick = () => { state.photoTimer ? stopPhotoPolling() : startPhotoPolling(); };
+$('btn-photos-focus').onclick = focusPhotos;
+$('tg-photos').onchange = (e) => gPhotos.visible = e.target.checked;
+$('file-photos').onchange = (e) => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => { try { const n = ingestPhotos(JSON.parse(r.result)); toast(`${n} foto(s) importada(s)`, 'ok'); } catch (err) { toast('JSON inválido: ' + err.message, 'err'); } };
+  r.readAsText(f); e.target.value = '';
+};
+$('btn-demo').onclick = loadDemo;
+$('btn-clear-saved').onclick = () => {
+  if (!confirm('¿Eliminar todas las propiedades guardadas de este navegador?')) return;
+  state.projects = state.projects.filter(p => !p.saved);
+  localStorage.removeItem(STORAGE_KEY);
+  rebuildProjects(); refreshProjectList(); refreshMetrics();
+  toast('Propiedades guardadas eliminadas', '');
+};
+$('btn-add-prj').onclick = () => {
+  const prj = {
+    name: $('prj-name').value || 'Proyecto sin nombre',
+    lat: parseFloat($('prj-lat').value) || state.centerLat,
+    lon: parseFloat($('prj-lon').value) || state.centerLon,
+    h: parseFloat($('prj-h').value) || 40,
+    area: parseFloat($('prj-area').value) || 0,
+    stage: $('prj-stage').value, saved: false, ifc: false, pcd: false,
+  };
+  addProject(prj);
+};
+$('btn-top').onclick = () => { camera.position.set(0, 2500, 0.1); controls.target.set(0, 0, 0); };
+$('btn-iso').onclick = () => { camera.position.set(1200, 1100, 1200); controls.target.set(0, 0, 0); };
+$('btn-reset').onclick = () => { camera.position.set(1200, 1100, 1200); controls.target.set(0, 0, 0); };
+
+// ===================== ANIMATE =====================
+let lastT = performance.now(), frames = 0, fpsT = 0;
+function updateObjCount() {
+  let count = 0;
+  scene.traverse(o => { if (o.isMesh || o.isPoints || o.isLine) count++; });
+  $('obj-count').textContent = count;
+}
+function animate(t) {
+  requestAnimationFrame(animate);
+  const dt = t - lastT; lastT = t; frames++; fpsT += dt;
+  if (fpsT > 500) { $('fps').textContent = Math.round(1000 * frames / fpsT); frames = 0; fpsT = 0; }
+  const focal = state.projects.find(p => p.id === state.focalId);
+  if (focal && focal.sphere) { const s = 1 + Math.sin(t * 0.003) * 0.1; focal.sphere.scale.set(s, s, s); }
+  controls.update();
+  renderer.render(scene, camera);
+}
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize(); animate(0);
+
+// ===================== INIT =====================
+$('hud-center').textContent = `${state.centerLat.toFixed(5)}°, ${state.centerLon.toFixed(5)}°`;
+const savedEndpoint = localStorage.getItem('cali_tg_endpoint');
+if (savedEndpoint) $('tg-endpoint').value = savedEndpoint;
+if (window.LifeCityAuth) { $('user-chip').textContent = '◉ ' + window.LifeCityAuth.name(); $('btn-logout').onclick = () => window.LifeCityAuth.logout(); }
+loadPersistedProperties();
+renderStudies();
+window.addEventListener('focus', renderStudies);
+</script>
+</body>
+</html>

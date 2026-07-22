@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth.js"></script>
+<script src="learn.js"></script>
 <title>Cali · Estudio de Masas (Conceptual Massing)</title>
 <style>
   :root{
@@ -159,6 +160,7 @@
       <button class="btn" id="btn-sheet"><span class="ic">▭</span> Exportar lámina (ISO+cenital+frontal)</button>
       <button class="btn viol" id="btn-ifc"><span class="ic">▣</span> Exportar IFC (muros + niveles)</button>
       <button class="btn" id="btn-export"><span class="ic">⇩</span> Exportar masas (JSON)</button>
+      <button class="btn cyan" id="btn-bim"><span class="ic">▤</span> Planta por nivel + Interiores (IA) →</button>
       <button class="btn" id="btn-back"><span class="ic">←</span> Volver al visor</button>
     </div>
   </aside>
@@ -391,6 +393,11 @@ $('c-context').onchange=(e)=>gContext.visible=e.target.checked;
 $('btn-top').onclick=()=>{camera.position.set(0,300,0.1);controls.target.set(0,0,0);};
 $('btn-iso').onclick=()=>{const h=Math.max(120,topOfStack()*1.4);camera.position.set(h,h,h);controls.target.set(0,topOfStack()/2,0);};
 $('btn-back').onclick=()=>{ if(history.length>1) history.back(); else location.href='cali_aec_viewer.html'; };
+// Entrar al editor BIM (planta por nivel + interiores con IA). Reescribe el handoff con el estudio actual.
+$('btn-bim').onclick=()=>{
+  try{ localStorage.setItem('cali_massing_handoff', JSON.stringify(Object.assign({}, lot||{}, { study: collectStudy() }))); }catch(e){}
+  window.open('bim/masas.html','_blank');
+};
 $('btn-export').onclick=()=>{
   const data={predio:lot?{npn:lot.npn,direpred:lot.direpred,area:lotArea,icb,ica}:null,
     masas:masses.map((m,i)=>({n:i+1,pisos:m.floors,altura_piso:m.floorH,altura_total:+(m.floors*m.floorH).toFixed(2),retiro:m.offset,base:m.baseZ,huella_m2:Math.round(m.fArea),construida_m2:Math.round(m.fArea*m.floors)})),
@@ -577,7 +584,7 @@ canvas.addEventListener('click',(e)=>{
 const gEdit=new THREE.Group(); scene.add(gEdit);
 let solids=[]; let solidUid=1; let editDraft=null; let rectP1=null; let drag=null;
 let editHistory=[];
-function record(entry){ entry.t=Date.now(); editHistory.push(entry); }
+function record(entry){ entry.t=Date.now(); editHistory.push(entry); if(window.LifeLearn) LifeLearn.log(entry.op, Object.assign({predio: lot&&lot.npn, icb, ica, area:lotArea}, entry)); }
 
 function faceGeom(verts,f){ const pos=[]; for(let i=1;i<f.length-1;i++){ pos.push(...verts[f[0]].toArray(),...verts[f[i]].toArray(),...verts[f[i+1]].toArray()); } const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3)); g.computeVertexNormals(); return g; }
 function faceNormal(verts,f){ const a=verts[f[0]],b=verts[f[1]],c=verts[f[2]]; return new THREE.Vector3().subVectors(b,a).cross(new THREE.Vector3().subVectors(c,a)).normalize(); }

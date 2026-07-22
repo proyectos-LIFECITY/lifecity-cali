@@ -15,9 +15,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Any, Optional
-import traceback
+import traceback, os, json, datetime
 
 import massing_agent
+
+DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+os.makedirs(DATA_DIR, exist_ok=True)
+LOG_PATH = os.path.join(DATA_DIR, "interactions.jsonl")
 
 app = FastAPI(title="LifeCity Massing Agent")
 app.add_middleware(
@@ -38,6 +42,31 @@ class Predio(BaseModel):
 @app.get("/health")
 def health():
     return {"ok": True, "model": massing_agent.NEMOTRON_MODEL}
+
+# ===================== PROTOCOLO DE APRENDIZAJE =====================
+# Cada input/decisión del usuario (masa, sólido, habitación, brief de interiores,
+# diseño aceptado/rechazado) se registra como ejemplo para mejorar la IA.
+class LearnEvent(BaseModel):
+    t: Optional[int] = None
+    session: Optional[str] = None
+    event: str
+    data: Optional[Any] = None
+
+@app.post("/learn")
+def learn(ev: LearnEvent):
+    rec = ev.model_dump()
+    rec["server_ts"] = datetime.datetime.utcnow().isoformat() + "Z"
+    with open(LOG_PATH, "a", encoding="utf-8") as f:
+        f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    return {"ok": True}
+
+@app.get("/learn/stats")
+def learn_stats():
+    n = 0
+    if os.path.exists(LOG_PATH):
+        with open(LOG_PATH, encoding="utf-8") as f:
+            n = sum(1 for _ in f)
+    return {"events": n, "path": LOG_PATH}
 
 @app.post("/suggest")
 def suggest(p: Predio):

@@ -1,0 +1,103 @@
+{
+  "predio": {
+    "npn": "76001TEST",
+    "direpred": "CL 5 # 38-25",
+    "nom_barrio": "San Fernando"
+  },
+  "projectType": "obra",
+  "levels": [
+    {
+      "id": 1,
+      "name": "N0",
+      "elev": 0
+    },
+    {
+      "id": 2,
+      "name": "N1",
+      "elev": 3
+    }
+  ],
+  "rooms": [
+    {
+      "id": 1,
+      "name": "Alcoba 1",
+      "uso": "habitacion",
+      "level": 1,
+      "x": 5,
+      "z": 5,
+      "w": 4,
+      "d": 3.5
+    },
+    {
+      "id": 2,
+      "name": "Sala",
+      "uso": "sala",
+      "level": 1,
+      "x": 0,
+      "z": 0,
+      "w": 5,
+      "d": 4
+    }
+  ],
+  "bim": [
+    {
+      "id": "mcp-1783449940811-0",
+      "typeId": "ventana",
+      "existing": false,
+      "level": 1,
+      "x": 5,
+      "z": 3.25,
+      "w": 1.2,
+      "h": 1.2,
+      "d": 0.1,
+      "rotY": 0,
+      "apu": null,
+      "fromClaude": true,
+      "optionName": "Opción A — cama frente a ventana",
+      "roomId": 1
+    },
+    {
+      "id": "mcp-1783449940811-1",
+      "typeId": "puerta",
+      "existing": false,
+      "level": 1,
+      "x": 3.05,
+      "z": 5.8,
+      "w": 0.9,
+      "h": 2.1,
+      "d": 0.1,
+      "rotY": 0,
+      "apu": null,
+      "fromClaude": true,
+      "optionName": "Opción A — cama frente a ventana",
+      "roomId": 1
+    },
+    {
+      "id": "mcp-1783449940811-2",
+      "typeId": "muro-drywall",
+      "existing": false,
+      "level": 1,
+      "x": 5,
+      "z": 6.6,
+      "w": 3.4,
+      "h": 2.4,
+      "d": 0.6,
+      "rotY": 0,
+      "apu": null,
+      "fromClaude": true,
+      "optionName": "Opción A — cama frente a ventana",
+      "roomId": 1
+    }
+  ],
+  "_mcp": {
+    "version": 1
+  },
+  "designNotes": [
+    {
+      "roomId": 1,
+      "opcion": "Opción A — cama frente a ventana",
+      "descripcion": "Ventana al norte, closet en muro sur, puerta al pasillo.",
+      "fecha": "2026-07-07T18:45:40.811Z"
+    }
+  ]
+}

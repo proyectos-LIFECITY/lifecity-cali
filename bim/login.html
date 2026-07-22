@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LifeCity · Iniciar sesión</title>
+<style>
+  :root{
+    --bg-0:#0a0d12;--bg-1:#11161e;--bg-2:#1a2230;--line:#2a3548;--text:#e6ecf5;--text-dim:#8b97aa;
+    --accent:#f4b942;--accent-2:#ff5252;--accent-3:#4dd0e1;--ok:#6bd96b;--viol:#9c6bff;
+    --mono:'JetBrains Mono','SF Mono','Menlo',monospace;--display:'Space Grotesk','Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(1200px 700px at 70% -10%, #16202e 0%, var(--bg-0) 55%), var(--bg-0);
+    color:var(--text);font-family:var(--mono);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .wrap{width:100%;max-width:410px}
+  .brand{display:flex;align-items:center;gap:10px;justify-content:center;margin-bottom:22px}
+  .brand .mark{width:34px;height:34px;border:2px solid var(--accent);display:grid;place-items:center;color:var(--accent);font-weight:700;font-family:var(--display);transform:rotate(45deg)}
+  .brand .mark span{transform:rotate(-45deg)}
+  .brand h1{font-family:var(--display);font-size:20px;font-weight:700;letter-spacing:.5px}
+  .brand h1 b{color:var(--accent);font-weight:700}
+  .card{background:linear-gradient(180deg,var(--bg-1),#0c1017);border:1px solid var(--line);border-radius:14px;padding:26px 24px;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .tag{text-align:center;color:var(--text-dim);font-size:10px;letter-spacing:2px;text-transform:uppercase;margin-bottom:20px}
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:18px;background:var(--bg-0);padding:4px;border:1px solid var(--line);border-radius:10px}
+  .tabs button{background:transparent;border:0;color:var(--text-dim);font-family:var(--mono);font-size:12px;padding:9px;cursor:pointer;border-radius:7px;transition:.15s}
+  .tabs button.on{background:var(--bg-2);color:var(--text)}
+  .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+  .field label{font-size:9px;color:var(--text-dim);letter-spacing:1px;text-transform:uppercase}
+  .field input{background:var(--bg-0);border:1px solid var(--line);color:var(--text);padding:11px 12px;font-family:var(--mono);font-size:13px;border-radius:8px}
+  .field input:focus{outline:none;border-color:var(--accent)}
+  .row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;font-size:11px;color:var(--text-dim)}
+  .row label{display:flex;align-items:center;gap:7px;cursor:pointer}.row input{accent-color:var(--accent)}
+  .row a{color:var(--accent);text-decoration:none}
+  .submit{width:100%;padding:12px;background:var(--accent);color:#1a1305;border:0;border-radius:8px;font-family:var(--mono);font-weight:700;font-size:13px;cursor:pointer;transition:.15s}
+  .submit:hover{background:#ffc857}
+  .submit:disabled{opacity:.6;cursor:progress}
+  .msg{margin-top:14px;font-size:11px;padding:10px 12px;border-radius:8px;display:none;line-height:1.5}
+  .msg.show{display:block}
+  .msg.err{background:rgba(255,82,82,.12);border:1px solid var(--accent-2);color:#ffb3b3}
+  .msg.ok{background:rgba(107,217,107,.12);border:1px solid var(--ok);color:#bff0bf}
+  .hint{margin-top:16px;text-align:center;font-size:10px;color:var(--text-dim);line-height:1.7}
+  .hint code{color:var(--accent-3)}
+  .foot{text-align:center;margin-top:18px;font-size:10px;color:var(--text-dim)}
+  .foot b{color:var(--accent)}
+  .backend{margin-top:12px;text-align:center;font-size:9px;letter-spacing:1px;text-transform:uppercase}
+  .backend .dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--text-dim);margin-right:5px;vertical-align:middle}
+  .backend.local .dot{background:var(--accent)} .backend.supa .dot{background:var(--ok)}
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<script src="supabase-config.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand"><div class="mark"><span>LC</span></div><h1>Life<b>City</b></h1></div>
+  <div class="card">
+    <div class="tag">Plataforma Urbana AEC · Cali</div>
+    <div class="tabs">
+      <button id="tab-login" class="on">Iniciar sesión</button>
+      <button id="tab-reg">Crear cuenta</button>
+    </div>
+    <form id="form" autocomplete="on">
+      <div class="field" id="f-name" style="display:none">
+        <label>Nombre</label>
+        <input type="text" id="name" placeholder="Tu nombre">
+      </div>
+      <div class="field">
+        <label>Correo</label>
+        <input type="email" id="email" placeholder="tucorreo@lifecity.com.co" required>
+      </div>
+      <div class="field">
+        <label>Contraseña</label>
+        <input type="password" id="pass" placeholder="••••••••" required minlength="6">
+      </div>
+      <div class="row">
+        <label><input type="checkbox" id="remember" checked> Recordarme</label>
+        <a href="#" id="forgot">¿Olvidaste tu contraseña?</a>
+      </div>
+      <button type="submit" class="submit" id="submit">Entrar a la plataforma</button>
+      <div class="msg" id="msg"></div>
+    </form>
+    <div class="backend local" id="backend"><span class="dot"></span><span id="backend-txt">Modo local (demo)</span></div>
+    <div class="hint" id="demohint">Demo: <code>demo@lifecity.com.co</code> / <code>lifecity</code></div>
+  </div>
+  <div class="foot">© 2026 <b>LifeCity</b> · lifecity.com.co · Life City BIM</div>
+</div>
+
+<script type="module">
+// ==================== CONFIG ====================
+// Para autenticación REAL multi-dispositivo, pega tu proyecto Supabase.
+// Si se dejan vacías, funciona en MODO LOCAL (cuentas guardadas en este navegador).
+const CFG = window.SUPABASE_CONFIG || {};
+const SUPABASE_URL = CFG.url || '';
+const SUPABASE_ANON_KEY = CFG.anonKey || '';
+const REDIRECT_AFTER_LOGIN = 'cali_aec_viewer.html';
+const SESSION_KEY = 'lifecity_session';
+const USERS_KEY = 'lifecity_users';
+
+const $ = (id) => document.getElementById(id);
+const useSupa = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
+let supa = null;
+
+if (useSupa) {
+  $('backend').className = 'backend supa';
+  $('backend-txt').textContent = 'Supabase Auth';
+  $('demohint').style.display = 'none';
+  const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+  supa = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} else {
+  seedDemo();
+}
+
+// ==================== HELPERS ====================
+async function sha256(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function randHex(n=16){ const a=new Uint8Array(n); crypto.getRandomValues(a); return [...a].map(b=>b.toString(16).padStart(2,'0')).join(''); }
+function getUsers(){ try{ return JSON.parse(localStorage.getItem(USERS_KEY)||'{}'); }catch(e){ return {}; } }
+function setUsers(u){ localStorage.setItem(USERS_KEY, JSON.stringify(u)); }
+async function seedDemo(){
+  const users = getUsers();
+  if (!users['demo@lifecity.com.co']){
+    const salt = randHex();
+    users['demo@lifecity.com.co'] = { name:'Demo', salt, hash: await sha256(salt+'lifecity') };
+    setUsers(users);
+  }
+}
+function setSession(email, name){
+  const remember = $('remember').checked;
+  const exp = Date.now() + (remember ? 30*864e5 : 12*36e5); // 30 días / 12 h
+  localStorage.setItem(SESSION_KEY, JSON.stringify({ email, name: name||email, exp }));
+}
+function show(kind, text){ const m=$('msg'); m.className='msg show '+kind; m.textContent=text; }
+
+// ==================== UI TABS ====================
+let mode = 'login';
+function setMode(m){
+  mode = m;
+  $('tab-login').classList.toggle('on', m==='login');
+  $('tab-reg').classList.toggle('on', m==='reg');
+  $('f-name').style.display = m==='reg' ? 'flex' : 'none';
+  $('submit').textContent = m==='reg' ? 'Crear cuenta y entrar' : 'Entrar a la plataforma';
+  $('msg').classList.remove('show');
+}
+$('tab-login').onclick = ()=>setMode('login');
+$('tab-reg').onclick = ()=>setMode('reg');
+$('forgot').onclick = (e)=>{ e.preventDefault(); show('ok', useSupa ? 'Revisa tu correo para restablecer (si configuras el flujo de recuperación en Supabase).' : 'Modo local: crea una cuenta nueva o usa la cuenta demo.'); };
+
+// ==================== SUBMIT ====================
+$('form').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email = $('email').value.trim().toLowerCase();
+  const pass = $('pass').value;
+  const name = $('name').value.trim();
+  if (!email || pass.length < 6){ show('err','Correo válido y contraseña de 6+ caracteres.'); return; }
+  $('submit').disabled = true;
+  try {
+    if (useSupa) await handleSupa(email, pass, name);
+    else await handleLocal(email, pass, name);
+  } catch (err) {
+    show('err', err.message || 'Error de autenticación.');
+    $('submit').disabled = false;
+  }
+});
+
+async function handleLocal(email, pass, name){
+  const users = getUsers();
+  if (mode === 'reg'){
+    if (users[email]) throw new Error('Ya existe una cuenta con ese correo. Inicia sesión.');
+    const salt = randHex();
+    users[email] = { name: name||email, salt, hash: await sha256(salt+pass) };
+    setUsers(users);
+    setSession(email, name);
+    show('ok','Cuenta creada. Entrando…');
+  } else {
+    const u = users[email];
+    if (!u) throw new Error('No existe una cuenta con ese correo. Crea una cuenta.');
+    const hash = await sha256(u.salt + pass);
+    if (hash !== u.hash) throw new Error('Contraseña incorrecta.');
+    setSession(email, u.name);
+    show('ok','Bienvenido, '+(u.name||email)+'. Entrando…');
+  }
+  setTimeout(()=> location.href = REDIRECT_AFTER_LOGIN, 500);
+}
+
+async function handleSupa(email, pass, name){
+  if (mode === 'reg'){
+    const { data, error } = await supa.auth.signUp({ email, password: pass, options:{ data:{ name } } });
+    if (error) throw error;
+    if (data.session){ setSession(email, name); show('ok','Cuenta creada. Entrando…'); setTimeout(()=>location.href=REDIRECT_AFTER_LOGIN,500); }
+    else { show('ok','Cuenta creada. Revisa tu correo para confirmar y luego inicia sesión.'); $('submit').disabled=false; setMode('login'); }
+  } else {
+    const { data, error } = await supa.auth.signInWithPassword({ email, password: pass });
+    if (error) throw error;
+    setSession(email, (data.user && data.user.user_metadata && data.user.user_metadata.name) || email);
+    show('ok','Bienvenido. Entrando…');
+    setTimeout(()=> location.href = REDIRECT_AFTER_LOGIN, 500);
+  }
+}
+
+// Si ya hay sesión válida, entra directo.
+try {
+  const s = JSON.parse(localStorage.getItem(SESSION_KEY)||'null');
+  if (s && (!s.exp || Date.now() < s.exp)) location.replace(REDIRECT_AFTER_LOGIN);
+} catch(e){}
+</script>
+</body>
+</html>

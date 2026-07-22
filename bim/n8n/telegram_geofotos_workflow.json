@@ -1,0 +1,79 @@
+{
+  "name": "Cali - Fotos Telegram geolocalizadas",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": ["message"],
+        "additionalFields": {}
+      },
+      "id": "tg-trigger",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [220, 240],
+      "credentials": {
+        "telegramApi": { "name": "Telegram Cali Bot" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ingesta: correlaciona ubicacion + foto por chat y las guarda en staticData.\n// El token del bot: mejor como variable de entorno TELEGRAM_BOT_TOKEN.\nconst token = $env.TELEGRAM_BOT_TOKEN || 'PEGA_TU_TOKEN_AQUI';\nconst sd = $getWorkflowStaticData('global');\nsd.photos = sd.photos || [];\nsd.pending = sd.pending || {};\n\nconst upd = $json.message || $json.channel_post || $json;\nconst msg = upd.message ? upd.message : upd;\nconst chatId = msg.chat && msg.chat.id;\n\nasync function reply(text){\n  if(!chatId) return;\n  try{ await this.helpers.httpRequest({ method:'POST', url:`https://api.telegram.org/bot${token}/sendMessage`, body:{ chat_id: chatId, text }, json:true }); }catch(e){}\n}\n\nlet out = { handled:false };\n\nif (msg.location){\n  sd.pending[chatId] = { lat: msg.location.latitude, lon: msg.location.longitude };\n  await reply.call(this, '📍 Ubicación recibida. Ahora envíame la foto y la ubicaré en el mapa.');\n  out = { handled:'location', lat: msg.location.latitude, lon: msg.location.longitude };\n}\nelse if (msg.photo && msg.photo.length){\n  const fileId = msg.photo[msg.photo.length-1].file_id; // mayor resolución\n  const gf = await this.helpers.httpRequest({ url:`https://api.telegram.org/bot${token}/getFile`, qs:{ file_id: fileId }, json:true });\n  const filePath = gf.result && gf.result.file_path;\n  const url = `https://api.telegram.org/file/bot${token}/${filePath}`;\n  const loc = sd.pending[chatId];\n  if(!loc){\n    await reply.call(this, '⚠️ No tengo tu ubicación. Envía primero 📎 → Ubicación y luego la foto.');\n    out = { handled:'photo_sin_ubicacion', url };\n  } else {\n    const rec = { id:String(msg.message_id), url, caption: msg.caption||'', date:new Date((msg.date||0)*1000).toISOString(), lat: loc.lat, lon: loc.lon };\n    sd.photos.push(rec);\n    if(sd.photos.length>500) sd.photos.shift();\n    delete sd.pending[chatId];\n    await reply.call(this, `✅ Foto ubicada en ${loc.lat.toFixed(5)}, ${loc.lon.toFixed(5)}. Total: ${sd.photos.length}.`);\n    out = { handled:'foto', rec };\n  }\n}\nreturn [{ json: out }];"
+      },
+      "id": "code-ingest",
+      "name": "Ingesta (ubicación + foto)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 240]
+    },
+    {
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "cali-fotos",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-serve",
+      "name": "Webhook GET /cali-fotos",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [220, 500],
+      "webhookId": "cali-fotos"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Devuelve el arreglo acumulado de fotos geolocalizadas.\nconst sd = $getWorkflowStaticData('global');\nreturn [{ json: { photos: sd.photos || [] } }];"
+      },
+      "id": "code-serve",
+      "name": "Leer fotos",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 500]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Access-Control-Allow-Origin", "value": "*" },
+              { "name": "Cache-Control", "value": "no-store" }
+            ]
+          }
+        }
+      },
+      "id": "respond",
+      "name": "Responder (CORS)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [740, 500]
+    }
+  ],
+  "connections": {
+    "Telegram Trigger": { "main": [[{ "node": "Ingesta (ubicación + foto)", "type": "main", "index": 0 }]] },
+    "Webhook GET /cali-fotos": { "main": [[{ "node": "Leer fotos", "type": "main", "index": 0 }]] },
+    "Leer fotos": { "main": [[{ "node": "Responder (CORS)", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "pinData": {}
+}

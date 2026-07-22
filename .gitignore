@@ -12,3 +12,7 @@ scratchpad/
 
 # Config local de Claude Code / preview (no publicar)
 .claude/
+
+# Datos del protocolo de aprendizaje (no publicar)
+ai/data/
+ai/__pycache__/
