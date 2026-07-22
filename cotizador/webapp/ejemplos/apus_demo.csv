@@ -1,0 +1,19 @@
+Código,Descripción,Unidad,Valor
+PRE-01,Preliminares y campamento,gl,18500000
+CIM-01,Excavación mecánica,m3,38500
+CIM-02,Zapata en concreto 3000 psi incl. refuerzo,m3,1850000
+CIM-03,Losa de cimentación e=30cm,m2,285000
+EST-01,Columna en concreto 4000 psi incl. refuerzo,m3,2150000
+EST-02,Viga aérea en concreto 4000 psi,m3,2050000
+EST-03,Losa aligerada e=45cm,m2,265000
+MAM-01,Muro en bloque No.5 pañetado dos caras,m2,98000
+MAM-02,Muro en ladrillo a la vista,m2,145000
+CUB-01,Cubierta en teja termoacústica sobre estructura metálica,m2,175000
+PIN-01,Estuco y pintura tipo 1 dos manos,m2,32000
+PIS-01,Piso en porcelanato 60x60,m2,125000
+CAR-01,Puerta en madera entamborada incl. marco,un,650000
+VEN-01,Ventana en aluminio y vidrio 4mm,m2,385000
+HID-01,Punto hidráulico PVC-P 1/2",un,95000
+SAN-01,Punto sanitario PVC 4",un,125000
+ELE-01,Salida eléctrica toma doble,un,88000
+APA-01,Aparato sanitario + lavamanos gama media,un,780000

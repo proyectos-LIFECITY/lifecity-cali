@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="auth.js"></script>
+<title>Cotizador TRC · Decenal — Proyectos</title>
+<style>
+  :root{
+    --bg-0:#0a0d12;--bg-1:#11161e;--bg-2:#1a2230;--line:#2a3548;--text:#e6ecf5;--text-dim:#8b97aa;
+    --accent:#f4b942;--accent-2:#ff5252;--accent-3:#4dd0e1;--ok:#6bd96b;--viol:#9c6bff;
+    --mono:'JetBrains Mono','SF Mono','Menlo',monospace;--display:'Space Grotesk','Inter',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{min-height:100vh;background:var(--bg-0);color:var(--text);font-family:var(--mono);font-size:12px}
+  header{display:flex;align-items:center;gap:12px;padding:14px 22px;background:linear-gradient(90deg,var(--bg-1),var(--bg-0));border-bottom:1px solid var(--line)}
+  header .brand{font-family:var(--display);font-weight:700;font-size:16px;letter-spacing:.5px}
+  header .brand span{color:var(--viol);font-size:9px;letter-spacing:2px;display:block;line-height:1.4}
+  header .grow{flex:1}
+  .btn{padding:9px 14px;background:var(--bg-2);border:1px solid var(--line);color:var(--text);font-family:var(--mono);font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;transition:all .15s}
+  .btn:hover{background:#232c3d;border-color:var(--accent)}
+  .btn .ic{color:var(--accent);font-weight:700}
+  .btn.primary{background:var(--accent);color:#1a1305;border-color:var(--accent);font-weight:600}.btn.primary .ic{color:#1a1305}
+  main{max-width:1100px;margin:0 auto;padding:26px 22px 60px;display:flex;flex-direction:column;gap:18px}
+  h2{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-dim)}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+  .card{background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--viol);padding:14px;display:flex;flex-direction:column;gap:7px;cursor:pointer;position:relative}
+  .card:hover{background:#212a3b;border-color:var(--accent)}
+  .card .t{font-family:var(--display);font-weight:600;font-size:14px;padding-right:82px}
+  .card .m{font-size:10px;color:var(--text-dim)}.card .m b{color:var(--text)}
+  .card .del{position:absolute;top:9px;right:9px;color:var(--text-dim);font-size:10px;border:1px solid var(--line);border-radius:6px;padding:3px 7px;background:var(--bg-1)}.card .del:hover{color:var(--accent-2);border-color:var(--accent-2)}
+  .card .pills{display:flex;gap:6px;flex-wrap:wrap}
+  .pill{display:inline-block;padding:2px 8px;border-radius:9px;font-size:9px;letter-spacing:.5px;background:rgba(156,107,255,.18);color:var(--viol)}
+  .pill.ok{background:rgba(107,217,107,.18);color:var(--ok)}
+  .pill.warn{background:rgba(244,185,66,.18);color:var(--accent)}
+  .empty{color:var(--text-dim);padding:40px;text-align:center;font-style:italic;border:1px dashed var(--line)}
+  .bar{height:8px;background:var(--bg-0);border:1px solid var(--line);position:relative;overflow:hidden;margin-top:2px}
+  .bar span{position:absolute;left:0;top:0;bottom:0;background:var(--ok)}
+  .hint{font-size:10px;color:var(--text-dim);line-height:1.6}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+</head>
+<body>
+<header>
+  <div class="brand">COTIZADOR TRC · DECENAL<span>LIFECITY · SEGUROS DE CONSTRUCCIÓN</span></div>
+  <div class="grow"></div>
+  <label class="btn" for="imp-json"><span class="ic">⇪</span> Importar JSON</label>
+  <input type="file" id="imp-json" accept=".json" style="display:none">
+  <button class="btn primary" id="btn-nuevo"><span class="ic">+</span> Nuevo proyecto</button>
+</header>
+<main>
+  <h2>Proyectos guardados</h2>
+  <div id="grid"></div>
+  <p class="hint">Cada proyecto guarda: modelo 3D (datos extraídos), datos de póliza TRC y Decenal, presupuesto (APU + costos indirectos), cronograma, checklist de documentos decenal y el estado de cotización por aseguradora. Se persiste en este navegador (localStorage) y en <b>webapp/proyectos/</b> (para el plugin de Claude Code).</p>
+</main>
+<script>
+const KEY='cotizador_seguros_projects';
+const $=id=>document.getElementById(id);
+const read=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'{}')}catch(e){return{}}};
+const write=m=>localStorage.setItem(KEY,JSON.stringify(m));
+const fmt=n=>'$'+(n||0).toLocaleString('es-CO');
+
+function render(){
+  const m=read(), grid=$('grid'); grid.innerHTML='';
+  const keys=Object.keys(m).sort((a,b)=>(m[b].savedAt||'').localeCompare(m[a].savedAt||''));
+  if(!keys.length){grid.innerHTML='<div class="empty">Sin proyectos aún — crea el primero con «Nuevo proyecto»</div>';return;}
+  for(const k of keys){
+    const p=m[k];
+    const docs=p.documentos||[]; const listos=docs.filter(d=>d.estado==='listo').length;
+    const pct=docs.length?Math.round(100*listos/docs.length):0;
+    const dirTot=(p.presupuesto&&p.presupuesto.totalDirecto)||0, indTot=(p.presupuesto&&p.presupuesto.totalIndirecto)||0;
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`
+      <div class="t">${p.nombre||k}</div>
+      <div class="pills">
+        <span class="pill">${({trc:'TRC',decenal:'DECENAL',ambas:'TRC + DECENAL'})[(p.poliza&&p.poliza.tipo)||'ambas']}</span>
+        <span class="pill ${pct===100?'ok':'warn'}">Docs decenal ${pct}%</span>
+      </div>
+      <div class="m">Presupuesto: <b>${fmt(dirTot+indTot)}</b> · Modelo: <b>${(p.model&&p.model.fileName)||'sin modelo'}</b></div>
+      <div class="m">Guardado: <b>${p.savedAt?new Date(p.savedAt).toLocaleString('es-CO'):'—'}</b></div>
+      <div class="bar"><span style="width:${pct}%"></span></div>
+      <div class="del" title="Eliminar proyecto">🗑 Eliminar</div>`;
+    card.onclick=e=>{
+      if(e.target.classList.contains('del')){
+        if(confirm(`¿Eliminar el proyecto "${p.nombre||k}"? Esta acción no se puede deshacer.`)){
+          const mm=read();delete mm[k];write(mm);
+          fetch('/api/delete-project',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:k})}).catch(()=>{});
+          render();
+        }
+        return;
+      }
+      location.href='cotizador.html?id='+encodeURIComponent(k);
+    };
+    grid.appendChild(card);
+  }
+}
+
+$('btn-nuevo').onclick=()=>{
+  const nombre=prompt('Nombre del proyecto (ej: Edificio San Fernando):');
+  if(!nombre)return;
+  const id=nombre.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')+'_'+Date.now().toString(36);
+  const m=read(); m[id]={nombre, savedAt:new Date().toISOString()}; write(m);
+  location.href='cotizador.html?id='+encodeURIComponent(id);
+};
+
+$('imp-json').onchange=e=>{
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=()=>{try{
+    const p=JSON.parse(r.result);
+    if(!p||typeof p!=='object'||!p.nombre)throw new Error('no parece un proyecto del cotizador');
+    const id=p.id||('imp_'+Date.now().toString(36));
+    const m=read(); m[id]={...p,id}; write(m); render();
+  }catch(err){alert('No se pudo importar: '+err.message)}};
+  r.readAsText(f); e.target.value='';
+};
+
+render();
+</script>
+</body>
+</html>

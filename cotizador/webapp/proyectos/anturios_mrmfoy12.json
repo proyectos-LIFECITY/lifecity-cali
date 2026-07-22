@@ -1,0 +1,497 @@
+{
+ "id": "anturios_mrmfoy12",
+ "nombre": "ANTURIOS",
+ "savedAt": "2026-07-15T18:55:45.018Z",
+ "model": {
+  "source": "ifc",
+  "fileName": "ANTURIOS-EST-TORRE A.ifc",
+  "proyecto": "3459-21",
+  "direccion": "",
+  "ciudad": "Cali",
+  "niveles": [
+   {
+    "name": "N.O.N PISO 1",
+    "elev": 1.780000000000002
+   },
+   {
+    "name": "N.O.N PISO 2",
+    "elev": 4.280000000000002
+   },
+   {
+    "name": "N.O.N PISO 3",
+    "elev": 6.780000000000001
+   },
+   {
+    "name": "N.O.N PISO 4",
+    "elev": 9.280000000000003
+   },
+   {
+    "name": "N.O.N PISO 5",
+    "elev": 11.780000000000001
+   },
+   {
+    "name": "N.O.N PISO 6",
+    "elev": 14.280000000000001
+   },
+   {
+    "name": "N.O.N PISO 7",
+    "elev": 16.78
+   },
+   {
+    "name": "N.O.N PISO 8",
+    "elev": 19.279999999999998
+   },
+   {
+    "name": "CUMBRERA",
+    "elev": 21.149999999999995
+   },
+   {
+    "name": "N.O.N PISO 9",
+    "elev": 21.78
+   }
+  ],
+  "plantasSobre": 10,
+  "sotanos": 0,
+  "m2Sobre": 26597,
+  "m2Bajo": null,
+  "areaTotal": 26597,
+  "alturaLibre": 2.5,
+  "luzLibre": 2.5,
+  "voladizo": 0,
+  "numUnidades": null,
+  "cantidades": {
+   "Losas": 28,
+   "Muros": 3718,
+   "Vigas": 404
+  }
+ },
+ "poliza": {
+  "tipo": "decenal",
+  "trc": {
+   "tomador": "",
+   "nit": "",
+   "ingresosUltimoAno": null,
+   "proyeccionIngresos": null,
+   "nominaMensual": null,
+   "actividad": "",
+   "vigenciaMeses": null,
+   "siniestralidad": "Sin siniestralidad en los últimos 5 años",
+   "direccion": "Cali",
+   "limiteAsegurado": null
+  },
+  "decenal": {
+   "tomador": "",
+   "tomadorNit": "",
+   "intermediario": "",
+   "enajenador": "",
+   "constructor": "",
+   "geotecnia": "",
+   "disenadorEstructural": "",
+   "revisorDiseno": "",
+   "supervisorTecnico": "",
+   "defectosDisenador": "No",
+   "defectosConstructor": "No",
+   "descripcionObra": "3459-21: 10 plantas sobre rasante, 26597 m² construidos.",
+   "localizacion": "Valle del Cauca / Cali / ",
+   "tipologia": "Viviendas en bloque",
+   "tipoVivienda": "Tradicional",
+   "numViviendas": null,
+   "estrato": null,
+   "tipoZona": "Urbana urbanización media",
+   "tipoContrato": "Privado",
+   "fechaInicio": "",
+   "fechaFin": "",
+   "estructuraVertical": "Hormigón armado",
+   "estructuraHorizontal": "Hormigón armado",
+   "cimentacion": "Zapatas",
+   "fachadas": "Revestida",
+   "cubiertas": "Plana no transitable",
+   "informeGeotecnico": "Sí",
+   "lote": "Horizontal",
+   "financiacion": "Capital propio",
+   "entidadFinanciera": ""
+  }
+ },
+ "presupuesto": {
+  "apus": [],
+  "items": [
+   {
+    "desc": "",
+    "unidad": "un",
+    "qty": 1,
+    "apu": "",
+    "valor": 0
+   },
+   {
+    "desc": "Losas",
+    "unidad": "un",
+    "qty": 28,
+    "apu": "",
+    "valor": 200000000
+   },
+   {
+    "desc": "Muros",
+    "unidad": "un",
+    "qty": 3718,
+    "apu": "",
+    "valor": 0
+   },
+   {
+    "desc": "Vigas",
+    "unidad": "un",
+    "qty": 404,
+    "apu": "",
+    "valor": 0
+   }
+  ],
+  "indirectos": [
+   {
+    "capitulo": "Diseño de proyecto",
+    "valor": 0
+   },
+   {
+    "capitulo": "Estudio geotécnico",
+    "valor": 0
+   },
+   {
+    "capitulo": "Otros estudios y diseños",
+    "valor": 100000000
+   },
+   {
+    "capitulo": "Dirección de obra",
+    "valor": 0
+   },
+   {
+    "capitulo": "Revisión de diseños",
+    "valor": 0
+   },
+   {
+    "capitulo": "Supervisión Técnica Independiente",
+    "valor": 0
+   },
+   {
+    "capitulo": "Interventoría (si aplica)",
+    "valor": 0
+   },
+   {
+    "capitulo": "Control de calidad",
+    "valor": 0
+   },
+   {
+    "capitulo": "Gastos notariales",
+    "valor": 0
+   },
+   {
+    "capitulo": "Seguros",
+    "valor": 0
+   },
+   {
+    "capitulo": "Otros honorarios y administración",
+    "valor": 0
+   },
+   {
+    "capitulo": "Gastos generales",
+    "valor": 0
+   },
+   {
+    "capitulo": "Licencias e impuestos",
+    "valor": 0
+   }
+  ],
+  "totalDirecto": 5600000000,
+  "totalIndirecto": 100000000
+ },
+ "cronograma": {
+  "actividades": [
+   {
+    "id": 1,
+    "nombre": "Preliminares y campamento",
+    "inicio": "2026-07-15",
+    "dur": 15
+   },
+   {
+    "id": 2,
+    "nombre": "Excavación y cimentación",
+    "inicio": "2026-07-30",
+    "dur": 30
+   },
+   {
+    "id": 3,
+    "nombre": "Estructura nivel 1",
+    "inicio": "2026-08-29",
+    "dur": 12
+   },
+   {
+    "id": 4,
+    "nombre": "Estructura nivel 2",
+    "inicio": "2026-09-10",
+    "dur": 12
+   },
+   {
+    "id": 5,
+    "nombre": "Estructura nivel 3",
+    "inicio": "2026-09-22",
+    "dur": 12
+   },
+   {
+    "id": 6,
+    "nombre": "Estructura nivel 4",
+    "inicio": "2026-10-04",
+    "dur": 12
+   },
+   {
+    "id": 7,
+    "nombre": "Estructura nivel 5",
+    "inicio": "2026-10-16",
+    "dur": 12
+   },
+   {
+    "id": 8,
+    "nombre": "Estructura nivel 6",
+    "inicio": "2026-10-28",
+    "dur": 12
+   },
+   {
+    "id": 9,
+    "nombre": "Estructura nivel 7",
+    "inicio": "2026-11-09",
+    "dur": 12
+   },
+   {
+    "id": 10,
+    "nombre": "Estructura nivel 8",
+    "inicio": "2026-11-21",
+    "dur": 12
+   },
+   {
+    "id": 11,
+    "nombre": "Estructura nivel 9",
+    "inicio": "2026-12-03",
+    "dur": 12
+   },
+   {
+    "id": 12,
+    "nombre": "Estructura nivel 10",
+    "inicio": "2026-12-15",
+    "dur": 12
+   },
+   {
+    "id": 13,
+    "nombre": "Mampostería y pañetes",
+    "inicio": "2026-12-27",
+    "dur": 35
+   },
+   {
+    "id": 14,
+    "nombre": "Cubierta",
+    "inicio": "2027-01-31",
+    "dur": 15
+   },
+   {
+    "id": 15,
+    "nombre": "Instalaciones MEP",
+    "inicio": "2027-02-15",
+    "dur": 40
+   },
+   {
+    "id": 16,
+    "nombre": "Acabados y carpinterías",
+    "inicio": "2027-03-27",
+    "dur": 45
+   },
+   {
+    "id": 17,
+    "nombre": "Urbanismo, aseo y entrega",
+    "inicio": "2027-05-11",
+    "dur": 15
+   }
+  ]
+ },
+ "documentos": [
+  {
+   "id": 1,
+   "nombre": "Memoria descriptiva del proyecto",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 2,
+   "nombre": "Presupuesto desglosado (directos + indirectos)",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 3,
+   "nombre": "Cronograma de obra 0% ejecución",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 4,
+   "nombre": "Planos estructurales en PDF",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 5,
+   "nombre": "Estudio de suelos (máx. 2 años)",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 6,
+   "nombre": "Licencia de construcción aprobada",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 7,
+   "nombre": "Memorias de cálculo del diseño estructural",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 8,
+   "nombre": "Memorias de la revisión del diseño estructural",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 9,
+   "nombre": "Presentación del constructor (lista de proyectos)",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 10,
+   "nombre": "Hoja de vida ingeniero de suelos",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 11,
+   "nombre": "Hoja de vida diseñador estructural",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 12,
+   "nombre": "Hoja de vida revisor de diseños",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 13,
+   "nombre": "Hoja de vida supervisor técnico",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 14,
+   "nombre": "Formulario de solicitud decenal diligenciado",
+   "estado": "falta",
+   "archivo": ""
+  }
+ ],
+ "aseguradoras": [
+  {
+   "nombre": "Seguros Mundial",
+   "producto": "Decenal + TRC",
+   "url": "https://www.segurosmundial.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "SBS Seguros",
+   "producto": "Decenal + TRC",
+   "url": "https://www.sbseguros.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Sura",
+   "producto": "TRC (+decenal consultar)",
+   "url": "https://www.segurossura.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Seguros Bolívar",
+   "producto": "TRC",
+   "url": "https://www.segurosbolivar.com",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "AXA Colpatria",
+   "producto": "TRC",
+   "url": "https://www.axacolpatria.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Mapfre Colombia",
+   "producto": "TRC",
+   "url": "https://www.mapfre.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Allianz Colombia",
+   "producto": "TRC",
+   "url": "https://www.allianz.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "HDI Seguros",
+   "producto": "TRC",
+   "url": "https://www.hdi.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Chubb Colombia",
+   "producto": "TRC",
+   "url": "https://www.chubb.com/co-es",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Zurich Colombia",
+   "producto": "TRC + decenal (consultar)",
+   "url": "https://www.zurich.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "La Previsora",
+   "producto": "TRC (obra pública)",
+   "url": "https://www.previsora.gov.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Seguros del Estado",
+   "producto": "TRC (obra pública)",
+   "url": "https://www.segurosdelestado.com",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  }
+ ],
+ "correo": {
+  "adjuntosDir": ""
+ }
+}

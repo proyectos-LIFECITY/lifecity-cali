@@ -276,6 +276,7 @@
         <button class="btn" id="btn-sheet"><span class="ic">▭</span> Lámina (ISO+planta+alzado)</button>
         <button class="btn viol" id="btn-ifc"><span class="ic">▣</span> Exportar IFC</button>
         <button class="btn" id="btn-export"><span class="ic">⇩</span> Exportar JSON</button>
+        <button class="btn primary" id="btn-cotizar" style="background:#6bd96b;border-color:#6bd96b;color:#0a0d12"><span class="ic">🛡</span> Crear proyecto (Cotizador TRC + Decenal) →</button>
         <button class="btn ok" id="btn-mcp-export"><span class="ic">⇪</span> Exportar para Claude (MCP)</button>
         <label class="btn ok" for="mcp-import"><span class="ic">⇩</span> Importar diseño de Claude (MCP)</label>
         <input type="file" id="mcp-import" accept=".json" style="display:none">
@@ -1490,6 +1491,12 @@ $('btn-open-rentas').onclick=openRentas; $('btn-rentas').onclick=openRentas;
 $('btn-apu-db').onclick=()=>{ renderApuTable(); openModal('modal-apu'); };
 $('btn-budget').onclick=openBudget;
 $('btn-save-study').onclick=saveStudy; $('btn-sheet').onclick=exportSheet; $('btn-ifc').onclick=exportIFC; $('btn-export').onclick=exportJSON;
+// Crear proyecto en el Cotizador TRC + Decenal: pasa el proyecto BIM 5D por handoff y abre el cotizador.
+$('btn-cotizar').onclick=()=>{
+  try{ localStorage.setItem('cotizador_handoff', JSON.stringify(collectStudy())); }catch(e){ flash('No se pudo preparar el proyecto: '+e.message,'#ff5252'); return; }
+  if(window.LifeLearn) LifeLearn.log('crear_proyecto_cotizador',{ predio:(lot&&lot.npn)||null, area:Math.round(totalBuilt()), niveles:levels.length, habitaciones:rooms.length });
+  window.open('../cotizador/webapp/cotizador.html','_blank');
+};
 $('btn-back').onclick=()=>{ if(history.length>1) history.back(); else location.href='cali_aec_viewer.html'; };
 if(window.LifeCityAuth){ $('btn-logout').onclick=()=>window.LifeCityAuth.logout(); }
 // nube

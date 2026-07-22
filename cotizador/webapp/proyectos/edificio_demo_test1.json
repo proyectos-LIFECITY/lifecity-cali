@@ -1,0 +1,326 @@
+{
+ "id": "edificio_demo_test1",
+ "nombre": "edificio_demo_test1",
+ "savedAt": "2026-07-16T18:22:09.254Z",
+ "model": {
+  "source": null,
+  "fileName": null,
+  "proyecto": "",
+  "direccion": "",
+  "ciudad": "Cali",
+  "niveles": [],
+  "plantasSobre": null,
+  "sotanos": null,
+  "m2Sobre": null,
+  "m2Bajo": null,
+  "areaTotal": null,
+  "alturaLibre": null,
+  "luzLibre": null,
+  "voladizo": null,
+  "numUnidades": null,
+  "cantidades": {}
+ },
+ "poliza": {
+  "tipo": "ambas",
+  "trc": {
+   "tomador": "",
+   "nit": "",
+   "ingresosUltimoAno": null,
+   "proyeccionIngresos": null,
+   "nominaMensual": null,
+   "actividad": "",
+   "vigenciaMeses": null,
+   "siniestralidad": "Sin siniestralidad en los últimos 5 años",
+   "direccion": "",
+   "limiteAsegurado": null
+  },
+  "decenal": {
+   "tomador": "",
+   "tomadorNit": "",
+   "intermediario": "",
+   "enajenador": "",
+   "constructor": "",
+   "geotecnia": "",
+   "disenadorEstructural": "",
+   "revisorDiseno": "",
+   "supervisorTecnico": "",
+   "defectosDisenador": "No",
+   "defectosConstructor": "No",
+   "descripcionObra": "",
+   "localizacion": "",
+   "tipologia": "Viviendas en bloque",
+   "tipoVivienda": "Tradicional",
+   "numViviendas": null,
+   "estrato": null,
+   "tipoZona": "Urbana urbanización media",
+   "tipoContrato": "Privado",
+   "fechaInicio": "",
+   "fechaFin": "",
+   "estructuraVertical": "Hormigón armado",
+   "estructuraHorizontal": "Hormigón armado",
+   "cimentacion": "Zapatas",
+   "fachadas": "Revestida",
+   "cubiertas": "Plana no transitable",
+   "informeGeotecnico": "Sí",
+   "lote": "Horizontal",
+   "financiacion": "Capital propio",
+   "entidadFinanciera": ""
+  }
+ },
+ "presupuesto": {
+  "apus": [],
+  "items": [],
+  "indirectos": [
+   {
+    "capitulo": "Diseño de proyecto",
+    "valor": 0
+   },
+   {
+    "capitulo": "Estudio geotécnico",
+    "valor": 0
+   },
+   {
+    "capitulo": "Otros estudios y diseños",
+    "valor": 0
+   },
+   {
+    "capitulo": "Dirección de obra",
+    "valor": 0
+   },
+   {
+    "capitulo": "Revisión de diseños",
+    "valor": 0
+   },
+   {
+    "capitulo": "Supervisión Técnica Independiente",
+    "valor": 0
+   },
+   {
+    "capitulo": "Interventoría (si aplica)",
+    "valor": 0
+   },
+   {
+    "capitulo": "Control de calidad",
+    "valor": 0
+   },
+   {
+    "capitulo": "Gastos notariales",
+    "valor": 0
+   },
+   {
+    "capitulo": "Seguros",
+    "valor": 0
+   },
+   {
+    "capitulo": "Otros honorarios y administración",
+    "valor": 0
+   },
+   {
+    "capitulo": "Gastos generales",
+    "valor": 0
+   },
+   {
+    "capitulo": "Licencias e impuestos",
+    "valor": 0
+   }
+  ],
+  "totalDirecto": 0,
+  "totalIndirecto": 0
+ },
+ "actividadesIfc": [],
+ "preciosProveedores": {},
+ "materiales": [],
+ "config": {
+  "cfUrl": "https://apu-gobernacion.proyectos-f96.workers.dev"
+ },
+ "cronograma": {
+  "actividades": []
+ },
+ "documentos": [
+  {
+   "id": 1,
+   "nombre": "Memoria descriptiva del proyecto",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 2,
+   "nombre": "Presupuesto desglosado (directos + indirectos)",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 3,
+   "nombre": "Cronograma de obra 0% ejecución",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 4,
+   "nombre": "Planos estructurales en PDF",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 5,
+   "nombre": "Estudio de suelos (máx. 2 años)",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 6,
+   "nombre": "Licencia de construcción aprobada",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 7,
+   "nombre": "Memorias de cálculo del diseño estructural",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 8,
+   "nombre": "Memorias de la revisión del diseño estructural",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 9,
+   "nombre": "Presentación del constructor (lista de proyectos)",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 10,
+   "nombre": "Hoja de vida ingeniero de suelos",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 11,
+   "nombre": "Hoja de vida diseñador estructural",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 12,
+   "nombre": "Hoja de vida revisor de diseños",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 13,
+   "nombre": "Hoja de vida supervisor técnico",
+   "estado": "falta",
+   "archivo": ""
+  },
+  {
+   "id": 14,
+   "nombre": "Formulario de solicitud decenal diligenciado",
+   "estado": "falta",
+   "archivo": ""
+  }
+ ],
+ "aseguradoras": [
+  {
+   "nombre": "Seguros Mundial",
+   "producto": "Decenal + TRC",
+   "url": "https://www.segurosmundial.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "SBS Seguros",
+   "producto": "Decenal + TRC",
+   "url": "https://www.sbseguros.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Sura",
+   "producto": "TRC (+decenal consultar)",
+   "url": "https://www.segurossura.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Seguros Bolívar",
+   "producto": "TRC",
+   "url": "https://www.segurosbolivar.com",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "AXA Colpatria",
+   "producto": "TRC",
+   "url": "https://www.axacolpatria.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Mapfre Colombia",
+   "producto": "TRC",
+   "url": "https://www.mapfre.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Allianz Colombia",
+   "producto": "TRC",
+   "url": "https://www.allianz.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "HDI Seguros",
+   "producto": "TRC",
+   "url": "https://www.hdi.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Chubb Colombia",
+   "producto": "TRC",
+   "url": "https://www.chubb.com/co-es",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Zurich Colombia",
+   "producto": "TRC + decenal (consultar)",
+   "url": "https://www.zurich.com.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "La Previsora",
+   "producto": "TRC (obra pública)",
+   "url": "https://www.previsora.gov.co",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  },
+  {
+   "nombre": "Seguros del Estado",
+   "producto": "TRC (obra pública)",
+   "url": "https://www.segurosdelestado.com",
+   "estado": "pendiente",
+   "prima": "",
+   "notas": ""
+  }
+ ],
+ "correo": {
+  "adjuntosDir": ""
+ }
+}
