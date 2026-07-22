@@ -6,4 +6,4 @@ REM  keys.bat esta en .gitignore: NO se publica en GitHub.
 REM  run.bat lo carga automaticamente antes de arrancar el servidor.
 REM ============================================================
 set NVIDIA_API_KEY=nvapi-PEGA_TU_CLAVE_AQUI
-set NEMOTRON_MODEL=nvidia/llama-3.1-nemotron-ultra-253b-v1
+set NEMOTRON_MODEL=nvidia/nemotron-3-ultra-550b-a55b
