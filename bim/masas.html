@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="auth.js"></script>
+<script src="../supabase-config.js"></script>
+<script src="../platform.js"></script>
 <script src="learn.js"></script>
 <title>LifeCity BIM · Editor 5D (Masas · Nube→BIM · MEP · Presupuesto · Rentas)</title>
 <!-- SheetJS para importar base de datos APU desde Excel (repo 1) -->
@@ -202,8 +204,8 @@
           <label class="toggle"><input type="radio" name="estado" id="st-new" checked><span>Nuevo</span></label>
           <label class="toggle"><input type="radio" name="estado" id="st-exist"><span>Existente</span></label>
         </div>
-        <button class="btn on" id="btn-boxsel"><span class="ic">⬚</span> Selección de caja (arrastrar en 3D)</button>
-        <button class="btn ok" id="btn-bim-create"><span class="ic">＋</span> Crear objeto en la selección</button>
+        <button class="btn on" id="btn-boxsel"><span class="ic">⬚</span> Selección de caja (arrastrar en 3D) <b style="font-size:8px;background:#f4b942;color:#1a1305;padding:1px 5px;border-radius:8px">PRO</b></button>
+        <button class="btn ok" id="btn-bim-create"><span class="ic">＋</span> Crear objeto en la selección <b style="font-size:8px;background:#f4b942;color:#1a1305;padding:1px 5px;border-radius:8px">PRO</b></button>
         <div class="hint" id="bim-info">Activa "Selección de caja" y arrastra sobre la nube para encerrar (ej. un muro o columna). El objeto se ajusta al bounding-box. Sin selección lo crea con tamaño estándar en el nivel activo.</div>
         <div id="bim-list"><div class="empty">Sin objetos BIM.</div></div>
       </div>
@@ -278,8 +280,8 @@
         <button class="btn viol" id="btn-ifc"><span class="ic">▣</span> Exportar IFC</button>
         <button class="btn" id="btn-export"><span class="ic">⇩</span> Exportar JSON</button>
         <button class="btn primary" id="btn-cotizar" style="background:#6bd96b;border-color:#6bd96b;color:#0a0d12"><span class="ic">🛡</span> Crear proyecto (Cotizador TRC + Decenal) →</button>
-        <button class="btn ok" id="btn-mcp-export"><span class="ic">⇪</span> Exportar para Claude (MCP)</button>
-        <label class="btn ok" for="mcp-import"><span class="ic">⇩</span> Importar diseño de Claude (MCP)</label>
+        <button class="btn ok" id="btn-mcp-export"><span class="ic">⇪</span> Exportar para Claude (MCP) <b style="font-size:8px;background:#f4b942;color:#1a1305;padding:1px 5px;border-radius:8px">PRO</b></button>
+        <label class="btn ok" for="mcp-import" id="lbl-mcp-import"><span class="ic">⇩</span> Importar diseño de Claude (MCP) <b style="font-size:8px;background:#f4b942;color:#1a1305;padding:1px 5px;border-radius:8px">PRO</b></label>
         <input type="file" id="mcp-import" accept=".json" style="display:none">
         <div class="hint">Guarda el JSON en <b>mcp/proyectos/</b> de la repo; conecta el servidor MCP a Claude Desktop/Code y pídele opciones de diseño por habitación. Luego importa el archivo actualizado.</div>
         <a class="btn" href="../masas.html" style="text-decoration:none"><span class="ic">▱</span> Editor sketch simple (rectángulo/extrusión) →</a>
@@ -1825,6 +1827,30 @@ setInterval(()=>{ renderRentMini(); if($('modal-rentas').classList.contains('on'
   on('tab-plan','click',function(){ L.log('open_plan',{predio:predioCtx()}); });
   L.log('bim_open',{predio:predioCtx()});
   console.log('[LifeLearn] protocolo de aprendizaje activo · endpoint:', L.endpoint());
+})();
+</script>
+
+<!-- ===================== LICENCIAS: PRO gate (MCP Claude + detector de elementos) ===================== -->
+<script>
+(function(){
+  var PRO_IDS=['btn-boxsel','btn-bim-create','btn-mcp-export','lbl-mcp-import'];
+  function upsell(){
+    var t=document.getElementById('pro-toast');
+    if(!t){ t=document.createElement('div'); t.id='pro-toast';
+      t.style.cssText='position:fixed;top:16px;left:50%;transform:translateX(-50%);background:rgba(10,13,18,.97);border:1px solid #f4b942;color:#f4b942;padding:11px 18px;border-radius:8px;font:12px "JetBrains Mono",monospace;z-index:99;max-width:80%';
+      document.body.appendChild(t); }
+    t.textContent='⭐ Función PRO: el MCP de Claude y el detector de elementos en la nube requieren licencia. Actívala en el visor principal (botón FREE → pega tu clave).';
+    t.style.display='block'; clearTimeout(t._t); t._t=setTimeout(function(){t.style.display='none';},4500);
+  }
+  // Chequeo SÍNCRONO: stopImmediatePropagation debe ejecutarse durante el dispatch.
+  function isProNow(){ return !!(window.LifePlatform && LifePlatform.isPro()); }
+  PRO_IDS.forEach(function(id){ var el=document.getElementById(id); if(!el) return;
+    el.addEventListener('click', function(ev){
+      if(isProNow()) return;
+      ev.preventDefault(); ev.stopImmediatePropagation(); upsell();
+      if(window.LifeLearn) LifeLearn.log('pro_gate',{feature:id});
+    }, true);
+  });
 })();
 </script>
 </body>

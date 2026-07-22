@@ -26,9 +26,12 @@
   const OOB = 'urn:ietf:wg:oauth:2.0:oob';
   const LS = (k) => 'lc_osm_' + k;
 
-  // App OAuth2 de LifeCity registrada en OSM producción (solo Client ID; el secreto NO va
-  // en el frontend: con PKCE no se necesita). Redirect registrado: cali_aec_viewer.html.
+  // App OAuth2 de LifeCity registrada en OSM producción. La app quedó registrada como
+  // CONFIDENCIAL, por lo que el canje del token exige también el client_secret.
+  // (Nota: al ir en el frontend el secreto es visible; con una app "pública" en OSM
+  // bastaría PKCE sin secreto.) Redirect registrado: cali_aec_viewer.html.
   const DEFAULT_CLIENT = { live: 'NklL5gBi2MuVOwXixR4-LR-E0dYuQKvru8cgslPOnGo', sandbox: '' };
+  const DEFAULT_SECRET = { live: 'cSE0l0x-uvpDArO6Vr8Oqj9IcB8kBkD5xM5q30_Te08', sandbox: '' };
   const WEB_REDIRECT = 'https://app.lifecity.com.co/cali_aec_viewer.html';
   // Usa el flujo de REDIRECCIÓN cuando estamos en el dominio registrado; si no, OOB (copiar/pegar).
   const useRedirect = () => (location.origin === 'https://app.lifecity.com.co');
@@ -74,13 +77,16 @@
   async function exchangeCode(code, ru) {
     const verifier = localStorage.getItem(LS('verifier_' + server));
     if (!verifier) throw new Error('Primero pulsa "Conectar cuenta OSM".');
+    const body = {
+      grant_type: 'authorization_code', code: (code || '').trim(),
+      client_id: getClientId(), redirect_uri: ru || redirectUri(), code_verifier: verifier,
+    };
+    const secret = localStorage.getItem(LS('secret_' + server)) || DEFAULT_SECRET[server] || '';
+    if (secret) body.client_secret = secret; // app confidencial: OSM exige el secreto en el canje
     const res = await fetch(cfg().auth + '/oauth2/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        grant_type: 'authorization_code', code: (code || '').trim(),
-        client_id: getClientId(), redirect_uri: ru || redirectUri(), code_verifier: verifier,
-      }).toString(),
+      body: new URLSearchParams(body).toString(),
     });
     if (!res.ok) throw new Error('OSM rechazó el código (' + res.status + '): ' + (await res.text()).slice(0, 160));
     const data = await res.json();
