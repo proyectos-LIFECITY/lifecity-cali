@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="auth.js"></script>
+<script src="../supabase-config.js"></script>
+<script src="../platform.js"></script>
 <script src="../osm-publish.js"></script>
 <title>LifeCity · Agente de mapas (construcciones reales de Cali)</title>
 <style>
@@ -159,7 +161,8 @@ function selected(){ return [...document.querySelectorAll('#list input[type=chec
 // Guardar en el visor principal (localStorage compartido)
 $('btn-save').onclick=()=>{
   const sel=selected(); if(!sel.length){toast('Selecciona al menos una','var(--accent-2)');return;}
-  let all={}; try{ all=JSON.parse(localStorage.getItem('cali_aec_props_v1')||'[]'); }catch(e){}
+  const PKEY=(window.LifePlatform&&LifePlatform.isLogged())?LifePlatform.projectsKey():'cali_aec_props_v1';
+  let all={}; try{ all=JSON.parse(localStorage.getItem(PKEY)||'[]'); }catch(e){}
   const arr=Array.isArray(all)?all:[];
   let add=0;
   sel.forEach(m=>{
@@ -170,7 +173,7 @@ $('btn-save').onclick=()=>{
       icb:null,ica:null,h:m.altura,stage:'Existente',saved:true,ifc:false,pcd:false,ring:m.ring});
     add++;
   });
-  localStorage.setItem('cali_aec_props_v1',JSON.stringify(arr));
+  localStorage.setItem(PKEY,JSON.stringify(arr)); if(window.LifePlatform) LifePlatform.pushDebounced();
   toast(`${add} construcción(es) guardada(s) en el visor principal`,'var(--ok)');
 };
 

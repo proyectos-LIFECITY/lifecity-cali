@@ -26,12 +26,20 @@
   const OOB = 'urn:ietf:wg:oauth:2.0:oob';
   const LS = (k) => 'lc_osm_' + k;
 
-  let server = localStorage.getItem(LS('server')) || 'sandbox';
-  if (!SERVERS[server]) server = 'sandbox';
+  // App OAuth2 de LifeCity registrada en OSM producción (solo Client ID; el secreto NO va
+  // en el frontend: con PKCE no se necesita). Redirect registrado: cali_aec_viewer.html.
+  const DEFAULT_CLIENT = { live: 'NklL5gBi2MuVOwXixR4-LR-E0dYuQKvru8cgslPOnGo', sandbox: '' };
+  const WEB_REDIRECT = 'https://app.lifecity.com.co/cali_aec_viewer.html';
+  // Usa el flujo de REDIRECCIÓN cuando estamos en el dominio registrado; si no, OOB (copiar/pegar).
+  const useRedirect = () => (location.origin === 'https://app.lifecity.com.co');
+  const redirectUri = () => (useRedirect() ? WEB_REDIRECT : OOB);
+
+  let server = localStorage.getItem(LS('server')) || 'live';
+  if (!SERVERS[server]) server = 'live';
 
   const cfg = () => SERVERS[server];
   function setServer(s) { if (SERVERS[s]) { server = s; localStorage.setItem(LS('server'), s); } }
-  function getClientId() { return localStorage.getItem(LS('client_' + server)) || ''; }
+  function getClientId() { return localStorage.getItem(LS('client_' + server)) || DEFAULT_CLIENT[server] || ''; }
   function setClientId(v) { localStorage.setItem(LS('client_' + server), (v || '').trim()); }
   const token = () => localStorage.getItem(LS('token_' + server)) || '';
   const isConnected = () => !!token();
@@ -43,24 +51,27 @@
     return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
-  // Abre la pantalla de autorización de OSM; el usuario copia el código mostrado
+  // Inicia OAuth2 PKCE. En el dominio registrado usa REDIRECCIÓN (vuelve a cali_aec_viewer.html
+  // con ?code); fuera de él usa OOB (copiar/pegar el código).
   async function beginAuth() {
     const clientId = getClientId();
-    if (!clientId) throw new Error('Configura el Client ID: registra una app OAuth2 en ' + cfg().auth + '/oauth2/applications con redirect "' + OOB + '" y permiso write_api.');
+    if (!clientId) throw new Error('Configura el Client ID (registra una app OAuth2 en ' + cfg().auth + '/oauth2/applications con permiso write_api).');
     const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     localStorage.setItem(LS('verifier_' + server), verifier);
+    const ru = redirectUri();
     const q = new URLSearchParams({
-      client_id: clientId, redirect_uri: OOB, response_type: 'code',
+      client_id: clientId, redirect_uri: ru, response_type: 'code',
       scope: 'write_api', code_challenge: b64url(new Uint8Array(digest)), code_challenge_method: 'S256',
     });
     const url = cfg().auth + '/oauth2/authorize?' + q.toString();
-    window.open(url, '_blank');
+    if (useRedirect()) { localStorage.setItem(LS('flow'), 'redirect'); location.href = url; }
+    else { localStorage.setItem(LS('flow'), 'oob'); window.open(url, '_blank'); }
     return url;
   }
 
-  // Canjea el código pegado por el usuario por un access token
-  async function exchangeCode(code) {
+  // Canjea el código por un access token (OOB: pegado; redirect: recibido en la URL)
+  async function exchangeCode(code, ru) {
     const verifier = localStorage.getItem(LS('verifier_' + server));
     if (!verifier) throw new Error('Primero pulsa "Conectar cuenta OSM".');
     const res = await fetch(cfg().auth + '/oauth2/token', {
@@ -68,7 +79,7 @@
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         grant_type: 'authorization_code', code: (code || '').trim(),
-        client_id: getClientId(), redirect_uri: OOB, code_verifier: verifier,
+        client_id: getClientId(), redirect_uri: ru || redirectUri(), code_verifier: verifier,
       }).toString(),
     });
     if (!res.ok) throw new Error('OSM rechazó el código (' + res.status + '): ' + (await res.text()).slice(0, 160));
@@ -77,6 +88,23 @@
     localStorage.setItem(LS('token_' + server), data.access_token);
     localStorage.removeItem(LS('verifier_' + server));
     return true;
+  }
+
+  // Callback del flujo de redirección: si volvemos con ?code=..., lo canjeamos y limpiamos la URL.
+  async function handleRedirectCallback() {
+    if (localStorage.getItem(LS('flow')) !== 'redirect') return false;
+    const qs = new URLSearchParams(location.search);
+    const code = qs.get('code');
+    if (!code) return false;
+    try {
+      await exchangeCode(code, WEB_REDIRECT);
+      localStorage.removeItem(LS('flow'));
+      // limpiar ?code de la URL
+      const clean = location.pathname + location.hash;
+      history.replaceState(null, '', clean);
+      window.dispatchEvent(new CustomEvent('osm-connected'));
+      return true;
+    } catch (e) { console.warn('[OSM] callback:', e.message); return false; }
   }
 
   async function apiFetch(path, method, body) {
@@ -132,6 +160,10 @@
     isConnected, logout,
     beginAuth, exchangeCode,
     publishBuildings,
+    usesRedirect: useRedirect,
+    handleRedirectCallback,
     registerUrl: () => cfg().auth + '/oauth2/applications',
   };
+  // Auto-procesa el retorno del OAuth por redirección (?code=...) al cargar cualquier página que incluya este script.
+  handleRedirectCallback();
 })();

@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth.js"></script>
+<script src="supabase-config.js"></script>
+<script src="platform.js"></script>
 <script src="osm-publish.js"></script>
 <title>Cali AEC Urban Viewer · Catastro IDESC</title>
 <style>
@@ -213,6 +215,10 @@
       <button id="btn-logout" title="Cerrar sesión" style="margin-left:auto;background:var(--bg-2);border:1px solid var(--line);color:var(--text-dim);font-family:var(--mono);font-size:10px;padding:5px 8px;cursor:pointer">⏻</button>
     </div>
     <div id="user-chip" style="font-size:10px;color:var(--text-dim);margin-top:-10px">—</div>
+    <div style="display:flex;gap:6px;margin-top:-6px">
+      <a class="btn" href="agente/agente.html" style="text-decoration:none;border-color:#9c6bff"><span class="ic" style="color:#9c6bff">🛰️</span> Agente de mapas (IA)</a>
+      <button class="btn" id="btn-plan" title="Plan / activar licencia" style="width:auto;min-width:64px;justify-content:center">FREE</button>
+    </div>
 
     <div class="section">
       <h2><span>Base Geográfica</span><span class="dot"></span></h2>
@@ -424,7 +430,7 @@ const WFS_BASE = 'https://ws-idesc.cali.gov.co/geoserver/ows';
 const WFS_LAYER = 'catastro:cat_bas_terrenos';
 // Campos válidos (se evita shape_len que está roto en el servidor)
 const WFS_PROPS = 'npn,numepred,direpred,nom_barrio,comuna,manzana,terreno,predio,uso_suelo,shape_area,the_geom';
-const STORAGE_KEY = 'cali_aec_props_v1';
+const propsKey = () => (window.LifePlatform && LifePlatform.isLogged()) ? LifePlatform.projectsKey() : 'cali_aec_props_v1';
 
 // ===================== STATE =====================
 const state = {
@@ -937,12 +943,12 @@ function persistProperties() {
     nom_barrio: p.nom_barrio, comuna: p.comuna, lat: p.lat, lon: p.lon,
     area: p.area, h: p.h, stage: p.stage, ring: p.ring,
   }));
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) {}
+  try { localStorage.setItem(propsKey(), JSON.stringify(data)); if (window.LifePlatform) LifePlatform.pushDebounced(); } catch (e) {}
 }
 
 function loadPersistedProperties() {
   let data = [];
-  try { data = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch (e) {}
+  try { data = JSON.parse(localStorage.getItem(propsKey()) || '[]'); } catch (e) {}
   for (const d of data) { d.saved = true; d.ifc = false; d.pcd = false; addProject(d); }
   if (data.length) toast(`${data.length} propiedad(es) guardada(s) restaurada(s)`, '');
 }
@@ -1398,7 +1404,7 @@ if (OSM) {
 $('btn-clear-saved').onclick = () => {
   if (!confirm('¿Eliminar todas las propiedades guardadas de este navegador?')) return;
   state.projects = state.projects.filter(p => !p.saved);
-  localStorage.removeItem(STORAGE_KEY);
+  localStorage.removeItem(propsKey()); if (window.LifePlatform) LifePlatform.pushDebounced();
   rebuildProjects(); refreshProjectList(); refreshMetrics();
   toast('Propiedades guardadas eliminadas', '');
 };
@@ -1446,8 +1452,24 @@ $('hud-center').textContent = `${state.centerLat.toFixed(5)}°, ${state.centerLo
 const savedEndpoint = localStorage.getItem('cali_tg_endpoint');
 if (savedEndpoint) $('tg-endpoint').value = savedEndpoint;
 if (window.LifeCityAuth) { $('user-chip').textContent = '◉ ' + window.LifeCityAuth.name(); $('btn-logout').onclick = () => window.LifeCityAuth.logout(); }
-loadPersistedProperties();
-renderStudies();
+// Plan / licenciador (free = todo lo actual; PRO = accesos adicionales)
+$('btn-plan').onclick = async () => {
+  if (!window.LifePlatform) { toast('Plataforma no disponible', 'err'); return; }
+  await LifePlatform.ready;
+  if (LifePlatform.isPro()) { toast('Plan PRO activo ✓ (accesos adicionales habilitados)', 'ok'); return; }
+  const code = prompt('Plan actual: FREE (acceso a todas las herramientas).\n\nPara activar PRO (accesos adicionales: Facility Management, Manejo de obra, y próximos), pega tu clave de licencia:');
+  if (!code) return;
+  try { await LifePlatform.redeem(code); $('btn-plan').textContent = 'PRO'; toast('Licencia PRO activada ✓', 'ok'); }
+  catch (e) { toast('Licencia: ' + e.message, 'err'); }
+};
+// OSM: al volver del OAuth por redirección (?code=) el cliente ya canjeó el token
+window.addEventListener('osm-connected', () => { if (typeof updateOsmStatus === 'function') updateOsmStatus(); toast('Cuenta OSM conectada ✓', 'ok'); });
+(async () => {
+  if (window.LifePlatform) { try { await LifePlatform.ready; } catch (e) {}
+    if ($('btn-plan')) { $('btn-plan').textContent = LifePlatform.plan().toUpperCase(); } }
+  loadPersistedProperties();
+  renderStudies();
+})();
 window.addEventListener('focus', renderStudies);
 </script>
 </body>
