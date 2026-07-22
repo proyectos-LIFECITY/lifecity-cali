@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="auth.js"></script>
+<script src="../osm-publish.js"></script>
+<title>LifeCity · Agente de mapas (construcciones reales de Cali)</title>
+<style>
+  :root{--bg-0:#0a0d12;--bg-1:#11161e;--bg-2:#1a2230;--line:#2a3548;--text:#e6ecf5;--text-dim:#8b97aa;
+    --accent:#f4b942;--accent-2:#ff5252;--accent-3:#4dd0e1;--ok:#6bd96b;--viol:#9c6bff;
+    --mono:'JetBrains Mono','SF Mono',monospace;--display:'Space Grotesk',sans-serif;}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg-0);color:var(--text);font-family:var(--mono);font-size:12px;min-height:100vh}
+  header{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-bottom:1px solid var(--line);background:var(--bg-1)}
+  header h1{font-family:var(--display);font-size:16px}header h1 b{color:var(--accent)}
+  header .r{display:flex;gap:12px;align-items:center;font-size:11px;color:var(--text-dim)}
+  header a,header button{background:var(--bg-2);border:1px solid var(--line);color:var(--text);padding:6px 10px;border-radius:6px;cursor:pointer;text-decoration:none;font-family:var(--mono);font-size:11px}
+  .wrap{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:16px 20px;max-width:1500px;margin:0 auto}
+  @media(max-width:900px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--bg-1);border:1px solid var(--line);border-radius:10px;padding:14px}
+  .card h2{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text-dim);margin-bottom:10px}
+  .row{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin-bottom:10px}
+  .fld{display:flex;flex-direction:column;gap:4px;flex:1;min-width:120px}
+  .fld label{font-size:9px;color:var(--text-dim);text-transform:uppercase}
+  .fld input,.fld select{background:var(--bg-0);border:1px solid var(--line);color:var(--text);padding:8px;font-family:var(--mono);font-size:12px;border-radius:6px}
+  .btn{background:var(--bg-2);border:1px solid var(--line);color:var(--text);padding:9px 12px;border-radius:6px;cursor:pointer;font-family:var(--mono);font-size:12px}
+  .btn.primary{background:var(--accent);color:#1a1305;border-color:var(--accent);font-weight:600}
+  .btn.ok{background:var(--ok);color:#0a0d12;border-color:var(--ok);font-weight:600}
+  .btn.viol{border-color:var(--viol);color:#c9adff}
+  .btn:disabled{opacity:.5;cursor:progress}
+  #map{width:100%;height:300px;border:0;border-radius:8px;background:#000}
+  .hint{font-size:10px;color:var(--text-dim);line-height:1.5;margin-top:6px}
+  .list{display:flex;flex-direction:column;gap:8px;max-height:520px;overflow:auto;margin-top:8px}
+  .bld{background:var(--bg-2);border:1px solid var(--line);border-left:3px solid var(--accent-3);border-radius:8px;padding:10px;display:flex;gap:10px;align-items:flex-start}
+  .bld input[type=checkbox]{margin-top:3px;accent-color:var(--accent)}
+  .bld .info{flex:1}
+  .bld .dir{font-family:var(--display);font-weight:600;font-size:13px}
+  .bld .meta{font-size:10px;color:var(--text-dim);margin-top:2px}
+  .bld .meta b{color:var(--text)}
+  .pisos{display:inline-block;background:var(--accent);color:#1a1305;font-weight:700;font-size:11px;padding:2px 8px;border-radius:20px}
+  .bld a{color:var(--accent-3);font-size:10px}
+  .empty{color:var(--text-dim);font-style:italic;padding:14px;text-align:center}
+  .toast{position:fixed;top:14px;left:50%;transform:translateX(-50%);background:rgba(10,13,18,.96);border:1px solid var(--accent);padding:9px 16px;border-radius:6px;font-size:11px;display:none;z-index:20;max-width:80%}
+  .toast.show{display:block}
+  .osm-box{border-top:1px solid var(--line);margin-top:10px;padding-top:10px;display:flex;flex-direction:column;gap:6px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Life<b>City</b> · Agente de mapas <span style="color:var(--viol);font-size:10px">Nemotron + LangChain</span></h1>
+  <div class="r">
+    <span id="user">◉ —</span>
+    <a href="../cali_aec_viewer.html">← Visor principal</a>
+    <button id="logout">Salir</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- IZQUIERDA: mapa + controles -->
+  <div class="card">
+    <h2>1 · Zona de Cali a analizar</h2>
+    <div class="row">
+      <div class="fld" style="flex:2"><label>Dirección o lugar (Cali)</label><input id="addr" placeholder="Ej: Barrio San Fernando, Cali" value="San Fernando, Cali"></div>
+      <button class="btn" id="btn-geo">Buscar</button>
+    </div>
+    <div class="row">
+      <div class="fld"><label>Lat</label><input id="lat" type="number" step="0.000001" value="3.4450"></div>
+      <div class="fld"><label>Lon</label><input id="lon" type="number" step="0.000001" value="-76.5280"></div>
+      <div class="fld"><label>Radio (m)</label><input id="rad" type="number" value="140"></div>
+    </div>
+    <iframe id="map" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+    <div class="row" style="margin-top:10px">
+      <div class="fld" style="flex:2"><label>Endpoint del agente (backend /ai)</label><input id="ep" placeholder="http://localhost:8000/agent/maps"></div>
+      <button class="btn primary" id="btn-run">✦ Analizar zona con el agente</button>
+    </div>
+    <div class="hint">El agente lee las <b>construcciones reales</b> del catastro IDESC (huella + <b>nº de pisos real</b>, campo total_pis1), las visualiza en Google Maps/Street View y genera las masas. Nemotron ajusta la altura de piso por uso.</div>
+  </div>
+
+  <!-- DERECHA: resultados -->
+  <div class="card">
+    <h2>2 · Construcciones reales encontradas <span id="agente-note" style="color:var(--viol)"></span></h2>
+    <div class="row">
+      <button class="btn" id="sel-all">Seleccionar todas</button>
+      <button class="btn ok" id="btn-save">⇩ Guardar en el visor principal</button>
+    </div>
+    <div id="list" class="list"><div class="empty">Analiza una zona para ver las construcciones.</div></div>
+
+    <div class="osm-box">
+      <h2 style="margin:0">3 · Publicar en OpenStreetMap</h2>
+      <div class="row" style="margin:0">
+        <div class="fld"><label>Servidor</label><select id="osm-srv"><option value="sandbox">Sandbox (pruebas)</option><option value="live">OSM producción</option></select></div>
+        <div class="fld" style="flex:2"><label>Client ID OSM · <a id="osm-reg" href="#" target="_blank" style="color:var(--accent)">registrar ↗</a></label><input id="osm-cid" placeholder="Client ID de tu app OSM"></div>
+      </div>
+      <div class="row" style="margin:0">
+        <button class="btn" id="osm-conn">◉ Conectar OSM</button>
+        <div class="fld" style="flex:2;display:none" id="osm-codebox"><label>Pega el código</label><input id="osm-code" placeholder="código de OSM"></div>
+        <button class="btn" id="osm-codeok" style="display:none">✓</button>
+        <button class="btn viol" id="btn-osm">▲ Publicar seleccionadas en OSM</button>
+      </div>
+      <div class="hint" id="osm-status">Publica la huella real como edificio con <b>building:levels</b> = pisos del catastro. OAuth out-of-band (copiar/pegar código).</div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+let RESULTS={buildings:[],masas:[]};
+function toast(m,c){const t=$('toast');t.textContent=m;t.style.borderColor=c||'var(--accent)';t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3800);}
+function setMap(){ const lat=+$('lat').value,lon=+$('lon').value; $('map').src=`https://maps.google.com/maps?q=${lat},${lon}&z=18&output=embed`; }
+$('lat').oninput=setMap; $('lon').oninput=setMap; setMap();
+$('ep').value=localStorage.getItem('cali_agent_endpoint')||'http://localhost:8000/agent/maps';
+if(window.LifeCityAuth){ $('user').textContent='◉ '+LifeCityAuth.name(); $('logout').onclick=()=>LifeCityAuth.logout(); }
+
+// Geocodificar dirección (Nominatim OSM, gratis)
+$('btn-geo').onclick=async()=>{
+  const q=$('addr').value.trim(); if(!q)return;
+  try{ const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(q+', Cali, Colombia')}`,{headers:{'Accept':'application/json'}});
+    const d=await r.json(); if(!d.length){toast('No se encontró la dirección','var(--accent-2)');return;}
+    $('lat').value=(+d[0].lat).toFixed(6); $('lon').value=(+d[0].lon).toFixed(6); setMap(); toast('Ubicación: '+d[0].display_name.slice(0,50),'var(--ok)');
+  }catch(e){ toast('Error geocodificando: '+e.message,'var(--accent-2)'); }
+};
+
+// Correr el agente
+$('btn-run').onclick=async()=>{
+  const ep=$('ep').value.trim(); if(ep) localStorage.setItem('cali_agent_endpoint',ep);
+  const body={lat:+$('lat').value,lon:+$('lon').value,radius:+$('rad').value,limit:25};
+  $('btn-run').disabled=true; $('list').innerHTML='<div class="empty">El agente está leyendo el catastro y Google Maps…</div>';
+  try{
+    const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok) throw new Error('HTTP '+r.status+' · ¿corriste Iniciar LifeCity.bat (backend /ai)?');
+    const d=await r.json(); if(d.error) throw new Error(d.error);
+    RESULTS=d; $('agente-note').textContent=d.agente?('· '+d.agente):'';
+    renderList();
+    toast(`${d.n} construcciones reales · pisos del catastro`,'var(--ok)');
+  }catch(e){ $('list').innerHTML='<div class="empty">'+e.message+'</div>'; toast('Agente: '+e.message,'var(--accent-2)'); }
+  $('btn-run').disabled=false;
+};
+function renderList(){
+  const L=$('list'); const bs=RESULTS.masas||[];
+  if(!bs.length){ L.innerHTML='<div class="empty">Sin construcciones en esa zona.</div>'; return; }
+  L.innerHTML='';
+  bs.forEach((m,i)=>{
+    const c=m.centroid||{}; const sv=(RESULTS.buildings[i]&&RESULTS.buildings[i].gmaps)?RESULTS.buildings[i].gmaps:{};
+    const el=document.createElement('div'); el.className='bld';
+    el.innerHTML=`<input type="checkbox" data-i="${i}" checked>
+      <div class="info">
+        <div class="dir">${m.direccion||'(sin dirección)'} <span class="pisos">${m.pisos} pisos</span></div>
+        <div class="meta">${m.barrio||''}${m.comuna?' · Comuna '+m.comuna:''} · <b>${m.altura} m</b> · ${m.area} m² · uso ${m.tipo||'s/d'}</div>
+        <div class="meta"><a href="${sv.streetview||'#'}" target="_blank">Street View ↗</a> · <a href="${sv.maps||'#'}" target="_blank">Google Maps ↗</a> · huella ${(m.ring||[]).length} vért.</div>
+      </div>`;
+    L.appendChild(el);
+  });
+}
+$('sel-all').onclick=()=>document.querySelectorAll('#list input[type=checkbox]').forEach(c=>c.checked=true);
+function selected(){ return [...document.querySelectorAll('#list input[type=checkbox]:checked')].map(c=>RESULTS.masas[+c.dataset.i]); }
+
+// Guardar en el visor principal (localStorage compartido)
+$('btn-save').onclick=()=>{
+  const sel=selected(); if(!sel.length){toast('Selecciona al menos una','var(--accent-2)');return;}
+  let all={}; try{ all=JSON.parse(localStorage.getItem('cali_aec_props_v1')||'[]'); }catch(e){}
+  const arr=Array.isArray(all)?all:[];
+  let add=0;
+  sel.forEach(m=>{
+    const id='ag_'+(m.npn||Math.random().toString(36).slice(2));
+    if(arr.some(p=>p.id===id))return;
+    arr.push({id,name:m.direccion||('Predio '+(m.npn||'')),npn:m.npn||'',numepred:'',direpred:m.direccion||'',
+      nom_barrio:m.barrio||'',comuna:m.comuna||'',lat:m.centroid.lat,lon:m.centroid.lon,area:m.area,
+      icb:null,ica:null,h:m.altura,stage:'Existente',saved:true,ifc:false,pcd:false,ring:m.ring});
+    add++;
+  });
+  localStorage.setItem('cali_aec_props_v1',JSON.stringify(arr));
+  toast(`${add} construcción(es) guardada(s) en el visor principal`,'var(--ok)');
+};
+
+// ---- OSM ----
+const OSM=window.OSMPublish;
+function osmStatus(){ if(!OSM){$('osm-status').textContent='Cliente OSM no disponible.';return;} $('osm-reg').href=OSM.registerUrl(); $('osm-status').innerHTML=(OSM.isConnected()?'✅ Conectado a <b>'+OSM.server()+'</b>. ':'⚠️ No conectado. ')+'Publica building=yes + building:levels (pisos reales). Redirect '+OSM.oob; }
+if(OSM){ $('osm-srv').value=OSM.server(); $('osm-cid').value=OSM.getClientId(); osmStatus();
+  $('osm-srv').onchange=e=>{OSM.setServer(e.target.value);$('osm-cid').value=OSM.getClientId();osmStatus();};
+  $('osm-cid').onchange=e=>{OSM.setClientId(e.target.value);osmStatus();};
+  $('osm-conn').onclick=async()=>{ OSM.setClientId($('osm-cid').value); if(!$('osm-cid').value.trim()){toast('Pon el Client ID de tu app OSM','var(--accent-2)');return;}
+    try{ await OSM.beginAuth(); $('osm-codebox').style.display='flex'; $('osm-codeok').style.display='inline-block'; toast('Autoriza en OSM y pega el código',''); }catch(e){toast('OSM: '+e.message,'var(--accent-2)');} };
+  $('osm-codeok').onclick=async()=>{ try{ await OSM.exchangeCode($('osm-code').value); $('osm-codebox').style.display='none'; $('osm-codeok').style.display='none'; osmStatus(); toast('Cuenta OSM conectada ✓','var(--ok)'); }catch(e){toast('OSM: '+e.message,'var(--accent-2)');} };
+  $('btn-osm').onclick=async()=>{
+    if(!OSM.isConnected()){toast('Conecta tu cuenta OSM primero','var(--accent-2)');return;}
+    const sel=selected(); if(!sel.length){toast('Selecciona construcciones','var(--accent-2)');return;}
+    if(OSM.server()==='live' && !confirm('Vas a publicar en OSM PRODUCCIÓN. Solo edificios que existen en la realidad (estos SÍ existen, son del catastro). ¿Continuar?'))return;
+    const buildings=sel.map(m=>({ring:m.ring,tags:m.osm_tags||{building:'yes','building:levels':String(m.pisos)}}));
+    $('btn-osm').disabled=true; toast('Publicando en OSM…','');
+    try{ const res=await OSM.publishBuildings(buildings,'Construcciones reales de Cali (catastro IDESC) — LifeCity agente'); toast('Publicado: changeset #'+res.changeset+' ('+res.count+' edificios)','var(--ok)'); window.open(res.url,'_blank'); }
+    catch(e){ toast('OSM: '+e.message,'var(--accent-2)'); }
+    $('btn-osm').disabled=false;
+  };
+}
+</script>
+</body>
+</html>

@@ -18,6 +18,7 @@ from typing import Any, Optional
 import traceback, os, json, datetime
 
 import massing_agent
+import agent_maps
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -67,6 +68,20 @@ def learn_stats():
         with open(LOG_PATH, encoding="utf-8") as f:
             n = sum(1 for _ in f)
     return {"events": n, "path": LOG_PATH}
+
+@app.post("/agent/maps")
+def agent_maps_ep(payload: dict):
+    """Agente de mapas: construcciones REALES de Cali (catastro) + pisos + masas.
+    payload: {lat, lon, radius?, limit?, gkey?, use_llm?}"""
+    try:
+        lat = float(payload.get("lat")); lon = float(payload.get("lon"))
+        radius = float(payload.get("radius") or 120); limit = int(payload.get("limit") or 20)
+        gkey = payload.get("gkey") or os.getenv("GOOGLE_MAPS_KEY")
+        use_llm = bool(payload.get("use_llm", True))
+        return agent_maps.run(lat, lon, radius, limit, gkey, use_llm)
+    except Exception as e:
+        traceback.print_exc()
+        return {"error": str(e), "buildings": [], "masas": [], "agente": "error"}
 
 @app.post("/interiors")
 def interiors(payload: dict):
