@@ -68,6 +68,18 @@ def learn_stats():
             n = sum(1 for _ in f)
     return {"events": n, "path": LOG_PATH}
 
+@app.post("/interiors")
+def interiors(payload: dict):
+    """Diseño de interiores con Nemotron (mismo formato que el editor BIM espera).
+    Si no hay LLM, usa el fallback determinista (respeta la regla de ventana)."""
+    try:
+        return massing_agent.suggest_interiors(payload)
+    except Exception as e:
+        traceback.print_exc()
+        out = massing_agent.interiors_fallback(payload)
+        out["note"] = f"fallback sin LLM: {e}"
+        return out
+
 @app.post("/suggest")
 def suggest(p: Predio):
     try:

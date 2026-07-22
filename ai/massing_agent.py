@@ -94,6 +94,77 @@ def suggest(predio: dict) -> dict:
     data.setdefault("solids", [])
     return data
 
+# ===================== INTERIORES (Nemotron) =====================
+DATA_DIR = pathlib.Path(__file__).parent / "data"
+INTER_LOG = DATA_DIR / "interactions.jsonl"
+
+INTERIOR_SYSTEM = """Eres el arquitecto de interiores de LifeCity BIM (Cali, Colombia).
+Diseñas UN espacio colocando elementos BIM del catálogo en coordenadas ABSOLUTAS en metros (plano XZ; el alto va en h).
+Catálogo (typeId disponibles): {catalogo}.
+REGLAS DURAS:
+1) Si el uso es "habitacion" o "sala", incluye al menos una "ventana" en el PERÍMETRO (x≈cx±w/2 o z≈cz±d/2), rotY 0 si el borde es paralelo a X, 1.5708 si es paralelo a Z.
+2) TODOS los objetos dentro del rectángulo (|x-cx|<=w/2, |z-cz|<=d/2).
+3) "puerta" en un borde; "sanitario"/"lavamanos" solo en baños; "lavaplatos" solo en cocinas.
+4) 4 a 8 objetos, distribución funcional y realista.
+Responde SOLO JSON: {{"opcion":str,"descripcion":str,"objetos":[{{"typeId":str,"x":num,"z":num,"w":num,"h":num,"d":num,"rotY":num}}]}}"""
+
+def _interior_examples(limit: int = 6) -> str:
+    if not INTER_LOG.exists():
+        return ""
+    picks = []
+    for line in INTER_LOG.read_text(encoding="utf-8").splitlines():
+        try:
+            r = json.loads(line)
+            if r.get("event") == "interior_apply" and r.get("data", {}).get("objetos"):
+                d = r["data"]
+                picks.append(f'\nEJEMPLO -> uso={d.get("uso")} brief="{d.get("brief","")}" => {json.dumps(d.get("objetos"), ensure_ascii=False)}')
+        except Exception:
+            pass
+    return "".join(picks[-limit:])
+
+def suggest_interiors(payload: dict) -> dict:
+    """payload: {room:{name,uso,x,z,w,d,level}, brief, catalog:[{id,label,w,h,d}], predio}
+    -> {opcion, descripcion, objetos:[{typeId,x,z,w,h,d,rotY}]}"""
+    from langchain_core.messages import SystemMessage, HumanMessage
+    room = payload.get("room", {}) or {}
+    brief = payload.get("brief", "") or ""
+    catalog = payload.get("catalog", []) or []
+    cat_txt = "; ".join(f"{c.get('id')}={c.get('label','')}({c.get('w')}x{c.get('h')}x{c.get('d')}m)" for c in catalog) \
+        or "ventana, puerta, muro-drywall, sanitario, lavamanos, lavaplatos"
+    ids = [c.get("id") for c in catalog] or ["ventana", "puerta", "muro-drywall", "sanitario", "lavamanos", "lavaplatos"]
+    system = INTERIOR_SYSTEM.format(catalogo=cat_txt)
+    human = (f'Espacio "{room.get("name","")}" uso={room.get("uso","habitacion")} '
+             f'centro=({room.get("x")},{room.get("z")}) w={room.get("w")} d={room.get("d")}. '
+             + (f"Indicaciones: {brief}. " if brief else "Propón la mejor distribución. ")
+             + f"typeId permitidos: {ids}."
+             + (f"\nEjemplos aprendidos:{_interior_examples()}"))
+    llm = _get_llm()
+    resp = llm.invoke([SystemMessage(content=system), HumanMessage(content=human)])
+    data = _extract_json(getattr(resp, "content", str(resp)))
+    data.setdefault("objetos", [])
+    data.setdefault("opcion", "Diseño Nemotron")
+    data.setdefault("descripcion", "")
+    return data
+
+def interiors_fallback(payload: dict) -> dict:
+    """Distribución determinista (sin LLM) que respeta la regla de ventana."""
+    room = payload.get("room", {}) or {}
+    cx, cz = float(room.get("x", 0)), float(room.get("z", 0))
+    w, d = float(room.get("w", 3)), float(room.get("d", 3))
+    uso = room.get("uso", "habitacion")
+    objs = [
+        {"typeId": "ventana", "x": cx, "z": cz - d / 2, "w": min(1.2, w * 0.5), "h": 1.2, "d": 0.15, "rotY": 0},
+        {"typeId": "puerta", "x": cx - w / 2, "z": cz, "w": 0.9, "h": 2.1, "d": 0.15, "rotY": 1.5708},
+    ]
+    if uso in ("bano",):
+        objs += [{"typeId": "sanitario", "x": cx + w / 2 - 0.4, "z": cz - d / 2 + 0.4, "w": 0.4, "h": 0.4, "d": 0.6, "rotY": 0},
+                 {"typeId": "lavamanos", "x": cx + w / 2 - 0.35, "z": cz + d / 2 - 0.35, "w": 0.5, "h": 0.85, "d": 0.4, "rotY": 0}]
+    elif uso in ("cocina",):
+        objs += [{"typeId": "lavaplatos", "x": cx, "z": cz + d / 2 - 0.35, "w": 0.8, "h": 0.9, "d": 0.6, "rotY": 0}]
+    else:
+        objs += [{"typeId": "muro-drywall", "x": cx + w / 2 - 0.3, "z": cz, "w": 0.15, "h": 2.4, "d": min(2.0, d * 0.6), "rotY": 0}]
+    return {"opcion": "Distribucion base", "descripcion": "Fallback sin LLM (ventana + acceso).", "objetos": objs}
+
 if __name__ == "__main__":
     demo = {"npn": "760010100040100210026000000000", "area": 93, "icb": 2.2, "ica": 4.0}
     print(json.dumps(suggest(demo), indent=2, ensure_ascii=False))

@@ -458,13 +458,17 @@
 <!-- ===================== MODAL: DISEÑAR CON CLAUDE ===================== -->
 <div class="modal" id="modal-claude">
   <div class="box sm">
-    <div class="mh"><div><h3>✦ Diseñar con Claude</h3><div class="sub">Genera un diseño y CREA los elementos BIM en la habitación</div></div><button class="x" data-close="modal-claude">✕</button></div>
+    <div class="mh"><div><h3>✦ Diseñar interiores con IA</h3><div class="sub">Genera un diseño y CREA los elementos BIM en la habitación</div></div><button class="x" data-close="modal-claude">✕</button></div>
     <div class="mb" style="display:flex;flex-direction:column;gap:10px">
       <div class="ctl"><label>Habitación / espacio a diseñar</label><select class="inp" id="cl-room"></select></div>
-      <div class="ctl"><label>Indicaciones para Claude (opcional)</label><textarea class="inp" id="cl-brief" rows="3" placeholder="Ej: alcoba principal, cama frente a la ventana, closet amplio en el muro sur, incluir baño privado…"></textarea></div>
+      <div class="ctl"><label>Indicaciones para la IA (opcional)</label><textarea class="inp" id="cl-brief" rows="3" placeholder="Ej: alcoba principal, cama frente a la ventana, closet amplio en el muro sur, incluir baño privado…"></textarea></div>
+      <div style="border-top:1px solid var(--line);padding-top:8px"><b style="font-size:12px;color:#9c6bff">Opción A · Nemotron (local, aprende de tus diseños)</b></div>
+      <div class="ctl"><label>Endpoint del agente (backend /ai)</label><input class="inp" id="cl-nemo-endpoint" placeholder="http://localhost:8000/interiors"></div>
+      <button class="btn" id="cl-nemo" style="border-color:#9c6bff;color:#c9adff"><span class="ic">✦</span> Generar con Nemotron</button>
+      <div style="border-top:1px solid var(--line);padding-top:8px"><b style="font-size:12px;color:var(--accent-3)">Opción B · Claude (API de Anthropic)</b></div>
       <div class="ctl"><label>API key de Anthropic (se guarda solo en este navegador)</label><input class="inp" id="cl-key" type="password" placeholder="sk-ant-…  (console.anthropic.com → API Keys)"></div>
-      <button class="btn primary" id="cl-go"><span class="ic">✦</span> Generar diseño y crear elementos</button>
-      <div class="hint" id="cl-status">Claude aplica la regla dura: toda habitación y la sala llevan VENTANA en el perímetro. Los elementos aparecen al instante en 3D y en la planta. Alternativa sin API key: servidor MCP en mcp/ (Claude Desktop/Code).</div>
+      <button class="btn primary" id="cl-go"><span class="ic">✦</span> Generar con Claude</button>
+      <div class="hint" id="cl-status">Ambas aplican la regla dura: toda habitación y la sala llevan VENTANA en el perímetro. Los elementos aparecen al instante en 3D y en la planta. Cada diseño que aceptes alimenta el aprendizaje de Nemotron.</div>
     </div>
   </div>
 </div>
@@ -1660,31 +1664,56 @@ $('btn-claude').onclick=()=>{
   $('cl-room').innerHTML=rooms.map(r=>`<option value="${r.id}">${r.name} · ${r.uso||'habitacion'} · ${r.w.toFixed(1)}×${r.d.toFixed(1)} m · ${levelName(r.level)}</option>`).join('');
   if(selEl&&selEl.kind==='room') $('cl-room').value=selEl.id;
   $('cl-key').value=localStorage.getItem(CL_KEY)||'';
-  $('cl-status').textContent='Claude aplica la regla dura: toda habitación y la sala llevan VENTANA en el perímetro. Los elementos aparecen al instante en 3D y en la planta.';
+  $('cl-nemo-endpoint').value=localStorage.getItem('cali_interiors_endpoint')||'http://localhost:8000/interiors';
   openModal('modal-claude');
 };
+// Crea los elementos BIM a partir de la respuesta de la IA (Claude o Nemotron) y APRENDE del diseño aceptado.
+function applyInteriorObjects(room, res, source){
+  const needs=(room.uso||'habitacion')==='habitacion'||room.uso==='sala';
+  const objetos=res.objetos||[];
+  if(needs && !objetos.some(o=>o.typeId==='ventana')){ $('cl-status').innerHTML='<span style="color:#ff8f8f">El diseño no incluyó ventana (regla de iluminación). Reintenta.</span>'; return 0; }
+  let added=0, fuera=0;
+  objetos.forEach(o=>{ const t=catalogById(o.typeId); if(!t) return;
+    if(Math.abs(o.x-room.x)>room.w/2+0.3 || Math.abs(o.z-room.z)>room.d/2+0.3){ fuera++; return; }
+    const ee={id:bid++,typeId:o.typeId,cat:t.cat,label:t.label,unit:t.unit,color:t.color,existing:false,level:room.level,
+      x:o.x,z:o.z,w:o.w||t.dims.w,h:o.h||t.dims.h,d:o.d||t.dims.d,rotY:o.rotY||0,apu:null,
+      fromClaude:true,optionName:res.opcion||('Diseño '+source),roomId:room.id};
+    bim.push(ee); buildBim(ee); added++; });
+  refresh(); renderPlan();
+  $('cl-status').innerHTML=`<span style="color:var(--ok)">✓ "${res.opcion||''}" — ${added} elemento(s) creados${fuera?` (${fuera} fuera del espacio)`:''}.</span><br><span class="hint">${res.descripcion||''}</span>`;
+  flash(`${source==='nemotron'?'Nemotron':'Claude'} creó ${added} elementos en "${room.name}" ✓`,'#6bd96b');
+  // Señal de aprendizaje: diseño aceptado → alimenta el dataset de Nemotron
+  if(window.LifeLearn) LifeLearn.log('interior_apply',{ source, room:room.name, uso:room.uso||'habitacion', brief:$('cl-brief').value.trim(), opcion:res.opcion, objetos, added, predio:(lot&&lot.npn)||null });
+  return added;
+}
 $('cl-go').onclick=async()=>{
   const key=$('cl-key').value.trim();
-  if(!key){ $('cl-status').innerHTML='<span style="color:#ff8f8f">Pega tu API key de Anthropic (console.anthropic.com → API Keys). Alternativa sin key: servidor MCP en mcp/.</span>'; return; }
+  if(!key){ $('cl-status').innerHTML='<span style="color:#ff8f8f">Pega tu API key de Anthropic, o usa la Opción A (Nemotron local).</span>'; return; }
   localStorage.setItem(CL_KEY,key);
   const room=rooms.find(r=>r.id===+$('cl-room').value); if(!room) return;
   const btn=$('cl-go'); btn.disabled=true;
   $('cl-status').innerHTML='<span style="color:var(--accent-3)">✦ Claude está diseñando "'+room.name+'"…</span>';
-  try{
-    const res=await claudeDesign(key, room, $('cl-brief').value.trim());
-    const needs=(room.uso||'habitacion')==='habitacion'||room.uso==='sala';
-    if(needs && !res.objetos.some(o=>o.typeId==='ventana')) throw new Error('El diseño no incluyó ventana (regla de iluminación). Reintenta.');
-    let added=0, fuera=0;
-    res.objetos.forEach(o=>{ const t=catalogById(o.typeId); if(!t) return;
-      if(Math.abs(o.x-room.x)>room.w/2+0.3 || Math.abs(o.z-room.z)>room.d/2+0.3){ fuera++; return; }
-      const ee={id:bid++,typeId:o.typeId,cat:t.cat,label:t.label,unit:t.unit,color:t.color,existing:false,level:room.level,
-        x:o.x,z:o.z,w:o.w||t.dims.w,h:o.h||t.dims.h,d:o.d||t.dims.d,rotY:o.rotY||0,apu:null,
-        fromClaude:true,optionName:res.opcion||'Diseño Claude',roomId:room.id};
-      bim.push(ee); buildBim(ee); added++; });
-    refresh(); renderPlan();
-    $('cl-status').innerHTML=`<span style="color:var(--ok)">✓ "${res.opcion}" — ${added} elemento(s) creados en 3D y planta${fuera?` (${fuera} descartados por quedar fuera del espacio)`:''}.</span><br><span class="hint">${res.descripcion||''}</span>`;
-    flash(`Claude creó ${added} elementos en "${room.name}" ✓ (regla de ventanas OK)`,'#6bd96b');
-  }catch(err){ $('cl-status').innerHTML='<span style="color:#ff8f8f">✕ '+err.message+'</span>'; }
+  try{ applyInteriorObjects(room, await claudeDesign(key, room, $('cl-brief').value.trim()), 'claude'); }
+  catch(err){ $('cl-status').innerHTML='<span style="color:#ff8f8f">✕ '+err.message+'</span>'; }
+  btn.disabled=false;
+};
+// ---- Nemotron (backend local /ai · aprende de los diseños aceptados) ----
+async function nemotronDesign(room, brief){
+  const url=($('cl-nemo-endpoint').value||'http://localhost:8000/interiors').trim();
+  localStorage.setItem('cali_interiors_endpoint',url);
+  const catalog=CATALOG.map(c=>({id:c.id,label:c.label,w:c.dims.w,h:c.dims.h,d:c.dims.d}));
+  const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ room:{name:room.name,uso:room.uso||'habitacion',x:room.x,z:room.z,w:room.w,d:room.d,level:room.level}, brief, catalog, predio:{npn:lot&&lot.npn,area:lotArea,icb,ica} })});
+  if(!resp.ok) throw new Error('HTTP '+resp.status+' · ¿corriste "Iniciar LifeCity.bat" (backend /ai)?');
+  const d=await resp.json();
+  return { opcion:d.opcion||'Diseño Nemotron', descripcion:d.descripcion||d.note||'', objetos:d.objetos||[] };
+}
+$('cl-nemo').onclick=async()=>{
+  const room=rooms.find(r=>r.id===+$('cl-room').value); if(!room) return;
+  const btn=$('cl-nemo'); btn.disabled=true;
+  $('cl-status').innerHTML='<span style="color:#c9adff">✦ Nemotron está diseñando "'+room.name+'"…</span>';
+  try{ applyInteriorObjects(room, await nemotronDesign(room, $('cl-brief').value.trim()), 'nemotron'); }
+  catch(err){ $('cl-status').innerHTML='<span style="color:#ff8f8f">✕ '+err.message+'</span>'; }
   btn.disabled=false;
 };
 async function claudeDesign(key, room, brief){
