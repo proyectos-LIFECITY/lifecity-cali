@@ -162,6 +162,7 @@
         <div class="ctl"><label>Retiro (m) <span class="v" id="v-off">0</span></label><input type="range" id="s-off" min="0" max="15" step="0.5" value="0"></div>
         <label class="toggle"><input type="checkbox" id="c-stack"><span>Apilar (torre/podio)</span></label>
         <button class="btn viol" id="btn-add"><span class="ic">＋</span> Crear masa</button>
+        <button class="btn" id="btn-ai-mass" style="border-color:#9c6bff;color:#c9adff"><span class="ic">✦</span> Sugerir masa con IA (Nemotron)</button>
         <div id="mass-list"><div class="empty">Sin masas.</div></div>
       </div>
     </div>
@@ -281,6 +282,7 @@
         <label class="btn ok" for="mcp-import"><span class="ic">⇩</span> Importar diseño de Claude (MCP)</label>
         <input type="file" id="mcp-import" accept=".json" style="display:none">
         <div class="hint">Guarda el JSON en <b>mcp/proyectos/</b> de la repo; conecta el servidor MCP a Claude Desktop/Code y pídele opciones de diseño por habitación. Luego importa el archivo actualizado.</div>
+        <a class="btn" href="../masas.html" style="text-decoration:none"><span class="ic">▱</span> Editor sketch simple (rectángulo/extrusión) →</a>
         <button class="btn" id="btn-back"><span class="ic">←</span> Volver al visor</button>
       </div>
     </div>
@@ -1468,6 +1470,22 @@ function exportJSON(){ download(JSON.stringify(collectStudy(),null,2),(lot&&lot.
 syncLabels();
 ['s-floors','s-fh','s-off'].forEach(id=>$(id).addEventListener('input',()=>{ syncLabels(); if(selMass){ selMass.floors=+$('s-floors').value; selMass.floorH=+$('s-fh').value; selMass.offset=+$('s-off').value; buildMass(selMass); refresh(); } }));
 $('btn-add').onclick=addMass;
+// ===== Sugerir masa con IA (Nemotron /suggest + protocolo de aprendizaje) — fusionado del editor simple =====
+$('btn-ai-mass').onclick=async()=>{
+  if(footprint.length<3){ flash('Sin predio: abre un lote desde el visor.','#ff5252'); return; }
+  const url=(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest');
+  const payload={ predio:{npn:lot&&lot.npn,area:lotArea,icb,ica}, ring:lot&&lot.ring, levels:levels.map(l=>({name:l.name,elev:l.elev})), objetivo:'Proponer volumetría que aproveche el índice sin exceder el POT.' };
+  flash('Consultando IA (Nemotron/LangChain)…','#9c6bff');
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok) throw new Error('HTTP '+r.status+' · ¿corriste Iniciar LifeCity.bat?');
+    const d=await r.json(); let nm=0;
+    if(Array.isArray(d.masses)) for(const s of d.masses){ masses.push({id:uid++,floors:+s.floors||3,floorH:+s.floorH||3,offset:+s.offset||0,baseZ:+s.baseZ||0,color:palette[(uid-2)%palette.length]}); nm++; }
+    rebuildMasses(); refresh();
+    if(window.LifeLearn) LifeLearn.log('ai_suggest',{predio:lot&&lot.npn,icb,ica,area:lotArea,masses:nm,editor:'bim'});
+    flash('IA aplicó '+nm+' masa(s)'+(d.note?' · '+String(d.note).slice(0,60):''), nm?'#6bd96b':'#f4b942');
+  }catch(e){ flash('IA no disponible: '+e.message,'#ff5252'); }
+};
 $('btn-add-pot').onclick=addMassPOT;
 $('btn-pick-front').onclick=()=>{ if(footprint.length<3){ flash('Abre un predio desde el visor para definir el frente.','#ff5252'); return; }
   mode==='pickFront'?setMode('orbit'):(setMode('pickFront'),flash('Clic sobre el BORDE del lote que da a la calle (frente).','#6bd96b')); };
@@ -1771,6 +1789,15 @@ function animate(){ requestAnimationFrame(animate); controls.update(); renderer.
 if(lot && lot.study && (lot.study.levels||lot.study.masses||lot.study.bim)){ restoreStudy(lot.study); flash('Proyecto restaurado desde el dashboard.','#4dd0e1'); }
 else { addLevel('N0', 0); addLevel('N1', 3); addLevel('N2', 6); refreshWallUI();
   setTimeout(()=>openModal('modal-tipo'), 500); } // proyecto nuevo → elegir Obra nueva / Remodelación
+// ===== Fase entrante (desde el cotizador) =====
+if(lot && lot.fase==='remodelacion'){
+  setTimeout(()=>{ try{closeModal('modal-tipo');}catch(e){} const b=document.getElementById('tipo-remo'); if(b) b.click();
+    flash('REMODELACIÓN: importa la NUBE DE PUNTOS del existente y crea los objetos BIM sobre ella (existente vs nuevo).','#9c6bff'); }, 800);
+}
+if(lot && lot.fase==='fm'){
+  setTimeout(()=>{ try{closeModal('modal-tipo');}catch(e){} openRentas();
+    flash('Facility Management: '+rooms.length+' habitación(es) detectada(s) del proyecto.','#6bd96b'); }, 900);
+}
 
 resize(); fillHead(); drawLot(); renderLevels(); renderEdgeRoleList(); updateFrontInfo(); refresh(); animate();
 if(footprint.length>=3){ const iso=Math.max(120, Math.sqrt(lotArea)*3); camera.position.set(iso,iso,iso); controls.target.set(0,0,0); }

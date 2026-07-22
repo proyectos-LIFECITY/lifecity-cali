@@ -4,3 +4,4 @@ langchain-core
 langchain-nvidia-ai-endpoints
 # fallback opcional (endpoint OpenAI-compatible / NIM local):
 langchain-openai
+python-multipart

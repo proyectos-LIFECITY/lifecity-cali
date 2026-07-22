@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="auth.js"></script>
+<script src="../../supabase-config.js"></script>
+<script src="../../platform.js"></script>
+<script src="../../learn.js"></script>
 <title>Cotizador TRC · Decenal — Proyecto</title>
 <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 <style>
@@ -2263,6 +2266,36 @@ renderProvMail();
 loadApuBase();
 const tabQ=QS.get('tab');
 if(tabQ){const b=document.querySelector(`.tabbtn[data-tab="${tabQ}"]`);if(b)b.click();}
+</script>
+
+<!-- ===================== FASES SIGUIENTES (LifeCity) ===================== -->
+<div id="lc-fases" style="position:fixed;right:14px;bottom:14px;z-index:50;display:flex;flex-direction:column;gap:8px;font-family:'JetBrains Mono',monospace">
+  <button id="lc-fm" style="background:#1a2230;border:1px solid #6bd96b;color:#6bd96b;padding:10px 14px;border-radius:8px;cursor:pointer;font-size:12px;text-align:left">🏠 Exportar a Facility Management <b style="font-size:9px;background:#f4b942;color:#1a1305;padding:1px 5px;border-radius:8px">PRO</b></button>
+  <button id="lc-obra" style="background:#1a2230;border:1px solid #4dd0e1;color:#4dd0e1;padding:10px 14px;border-radius:8px;cursor:pointer;font-size:12px;text-align:left">🏗️ Manejo de obra (nube vs BIM) <b style="font-size:9px;background:#f4b942;color:#1a1305;padding:1px 5px;border-radius:8px">PRO</b></button>
+  <button id="lc-remo" style="background:#1a2230;border:1px solid #9c6bff;color:#c9adff;padding:10px 14px;border-radius:8px;cursor:pointer;font-size:12px;text-align:left">⟳ Crear proyecto de REMODELACIÓN (nube de puntos)</button>
+</div>
+<script>
+(function(){
+  const $id=(x)=>document.getElementById(x);
+  async function pro(){ if(!window.LifePlatform) return false; await LifePlatform.ready; return LifePlatform.isPro(); }
+  function handoffFase(f){ let h={}; try{h=JSON.parse(localStorage.getItem('cali_massing_handoff')||'{}');}catch(e){} h.fase=f; localStorage.setItem('cali_massing_handoff',JSON.stringify(h)); }
+  $id('lc-fm').onclick=async()=>{
+    if(!(await pro())){ alert('Función PRO. Activa tu licencia en el visor principal (botón FREE → pega tu clave).'); return; }
+    handoffFase('fm'); if(window.LifeLearn) LifeLearn.log('fase_fm',{});
+    window.open('../../bim/masas.html','_blank');
+  };
+  $id('lc-obra').onclick=async()=>{
+    if(!(await pro())){ alert('Función PRO. Activa tu licencia en el visor principal (botón FREE → pega tu clave).'); return; }
+    let u=localStorage.getItem('cali_obra_url')||'';
+    if(!u){ u=prompt('URL de la app de Manejo de obra (repo 47 "Reconoce nube de puntos IA": backend FastAPI + frontend).
+Ej: http://localhost:5173','http://localhost:5173')||''; if(u) localStorage.setItem('cali_obra_url',u); }
+    if(u){ if(window.LifeLearn) LifeLearn.log('fase_obra',{}); window.open(u,'_blank'); }
+  };
+  $id('lc-remo').onclick=()=>{
+    handoffFase('remodelacion'); if(window.LifeLearn) LifeLearn.log('fase_remodelacion',{});
+    window.open('../../bim/masas.html','_blank');
+  };
+})();
 </script>
 </body>
 </html>

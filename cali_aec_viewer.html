@@ -898,7 +898,7 @@ function openStudy(k) {
   const s = readStudies()[k]; if (!s || !s.predio) { toast('Estudio sin geometría de predio', 'err'); return; }
   const payload = Object.assign({}, s.predio, { study: { levels: s.levels, walls: s.walls, masses: s.masses } });
   try { localStorage.setItem('cali_massing_handoff', JSON.stringify(payload)); } catch (e) {}
-  window.open('masas.html', '_blank');
+  window.open('bim/masas.html', '_blank'); // editor fusionado: sliders + IA + frente/antejardín + interiores
 }
 
 // Abre la página de masas con la geometría del terreno + normativa (handoff por localStorage)
@@ -913,7 +913,7 @@ function openMassing(props, centroid) {
     centroid, ring,
   };
   try { localStorage.setItem('cali_massing_handoff', JSON.stringify(payload)); } catch (e) {}
-  window.open('masas.html', '_blank');
+  window.open('bim/masas.html', '_blank'); // editor fusionado: sliders + IA + frente/antejardín + interiores
 }
 
 // ===================== PROPIEDADES (guardadas + persistencia) =====================

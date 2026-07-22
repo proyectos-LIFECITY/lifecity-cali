@@ -102,6 +102,14 @@
       </div>
       <div class="hint" id="osm-status">Publica la huella real como edificio con <b>building:levels</b> = pisos del catastro. OAuth out-of-band (copiar/pegar código).</div>
     </div>
+
+    <div class="osm-box">
+      <h2 style="margin:0">4 · Minar nuevas ciudades <span style="color:var(--viol)">(expansión)</span></h2>
+      <div class="row" style="margin:0">
+        <button class="btn viol" id="btn-mine">⛏️ Recomendar nuevas ciudades (Nemotron)</button>
+      </div>
+      <div id="mine-list" class="hint">El agente propone ciudades con catastro/datos abiertos para crear sus visores (como los de /intl).</div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -175,6 +183,19 @@ $('btn-save').onclick=()=>{
   });
   localStorage.setItem(PKEY,JSON.stringify(arr)); if(window.LifePlatform) LifePlatform.pushDebounced();
   toast(`${add} construcción(es) guardada(s) en el visor principal`,'var(--ok)');
+};
+
+// ---- Minado de nuevas ciudades ----
+$('btn-mine').onclick=async()=>{
+  const base=($('ep').value||'').replace(/\/agent\/maps.*/,'');
+  $('btn-mine').disabled=true; $('mine-list').textContent='El agente está evaluando ciudades…';
+  try{
+    const r=await fetch((base||'http://localhost:8000')+'/agent/cities',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({criterio:'LatAm y España primero'})});
+    const d=await r.json();
+    $('mine-list').innerHTML='<b style="color:var(--viol)">'+(d.agente||'')+'</b><br>'+(d.cities||[]).map(c=>`• <b>${c.name}</b> (${c.pais}) — ${c.fuente_datos}<br>&nbsp;&nbsp;<span style="color:var(--text-dim)">${c.razon}</span>`).join('<br>');
+    if(window.LifeLearn) LifeLearn.log('mine_cities',{n:(d.cities||[]).length});
+  }catch(e){ $('mine-list').textContent='Error: '+e.message+' (¿backend /ai corriendo?)'; }
+  $('btn-mine').disabled=false;
 };
 
 // ---- OSM ----

@@ -69,6 +69,80 @@ def learn_stats():
             n = sum(1 for _ in f)
     return {"events": n, "path": LOG_PATH}
 
+# ===================== NUBES DE PUNTOS · SERVICIO UNIFICADO =====================
+# Sube una vez, streamea a todo el programa (visor, bim, cotizador). Si un loader
+# local falla, el frontend reintenta contra este servicio. Deployable en la nube
+# (misma app FastAPI en cualquier host; o cambia CLOUDS_DIR a un bucket montado).
+from fastapi import UploadFile, File
+from fastapi.responses import StreamingResponse
+CLOUDS_DIR = os.path.join(DATA_DIR, "clouds")
+os.makedirs(CLOUDS_DIR, exist_ok=True)
+
+def _safe_name(n: str) -> str:
+    return "".join(c for c in (n or "nube") if c.isalnum() or c in "._-")[:80] or "nube"
+
+@app.post("/cloud/upload")
+async def cloud_upload(f: UploadFile = File(...)):
+    try:
+        name = _safe_name(f.filename)
+        path = os.path.join(CLOUDS_DIR, name)
+        size = 0
+        with open(path, "wb") as out:
+            while chunk := await f.read(1024 * 1024):
+                out.write(chunk); size += len(chunk)
+        return {"ok": True, "name": name, "bytes": size, "stream": f"/cloud/stream/{name}"}
+    except Exception as e:
+        traceback.print_exc(); return {"ok": False, "error": str(e)}
+
+@app.get("/cloud/list")
+def cloud_list():
+    try:
+        return {"clouds": [{"name": n, "bytes": os.path.getsize(os.path.join(CLOUDS_DIR, n))}
+                            for n in sorted(os.listdir(CLOUDS_DIR))]}
+    except Exception as e:
+        return {"clouds": [], "error": str(e)}
+
+@app.get("/cloud/stream/{name}")
+def cloud_stream(name: str):
+    path = os.path.join(CLOUDS_DIR, _safe_name(name))
+    if not os.path.exists(path):
+        return {"ok": False, "error": "no existe"}
+    def gen():
+        with open(path, "rb") as fh:
+            while chunk := fh.read(1024 * 512):
+                yield chunk
+    return StreamingResponse(gen(), media_type="application/octet-stream",
+                             headers={"Content-Length": str(os.path.getsize(path)),
+                                      "Access-Control-Allow-Origin": "*"})
+
+# ===================== AGENTE · MINADO DE NUEVAS CIUDADES =====================
+CIUDADES_ACTUALES = ["Cali", "Bogotá", "Medellín", "Cartagena", "Quito", "Buenos Aires",
+                     "Madrid", "Miami Lakes", "Boca Ratón", "Delray Beach"]
+
+@app.post("/agent/cities")
+def agent_cities(payload: dict):
+    """Recomienda nuevas ciudades para crear visores (Nemotron; fallback curado)."""
+    try:
+        from langchain_core.messages import SystemMessage, HumanMessage
+        llm = massing_agent._get_llm()
+        system = ("Eres el agente de expansión de LifeCity (visores de catastro+normativa por ciudad). "
+                  "Recomienda ciudades NUEVAS con catastro/datos abiertos accesibles (WFS/ArcGIS) y mercado inmobiliario activo. "
+                  'Responde SOLO JSON: {"cities":[{"name":str,"pais":str,"fuente_datos":str,"razon":str}]} (5 a 8).')
+        human = f"Ciudades ya cubiertas: {CIUDADES_ACTUALES}. Criterio extra: {payload.get('criterio','LatAm y España primero')}"
+        resp = llm.invoke([SystemMessage(content=system), HumanMessage(content=human)])
+        data = massing_agent._extract_json(getattr(resp, "content", str(resp)))
+        data["agente"] = "Nemotron"
+        return data
+    except Exception as e:
+        return {"agente": f"fallback sin LLM: {str(e)[:60]}", "cities": [
+            {"name": "Barranquilla", "pais": "Colombia", "fuente_datos": "Catastro distrital / IGAC WFS", "razon": "4a ciudad de Colombia, datos IGAC abiertos"},
+            {"name": "Bucaramanga", "pais": "Colombia", "fuente_datos": "IGAC / catastro multipropósito", "razon": "mercado activo, catastro multipropósito"},
+            {"name": "Ciudad de México", "pais": "México", "fuente_datos": "SEDUVI / datos abiertos CDMX", "razon": "mayor mercado hispano, uso de suelo abierto"},
+            {"name": "Lima", "pais": "Perú", "fuente_datos": "COFOPRI / IGN", "razon": "gran demanda de vivienda"},
+            {"name": "Ciudad de Panamá", "pais": "Panamá", "fuente_datos": "ANATI", "razon": "hub inmobiliario regional"},
+            {"name": "Barcelona", "pais": "España", "fuente_datos": "Catastro ES (INSPIRE WFS)", "razon": "catastro INSPIRE ya probado con Madrid"},
+        ]}
+
 @app.post("/agent/maps")
 def agent_maps_ep(payload: dict):
     """Agente de mapas: construcciones REALES de Cali (catastro) + pisos + masas.
