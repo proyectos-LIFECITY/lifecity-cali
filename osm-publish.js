@@ -54,22 +54,25 @@
     return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
 
-  // Inicia OAuth2 PKCE. En el dominio registrado usa REDIRECCIÓN (vuelve a cali_aec_viewer.html
-  // con ?code); fuera de él usa OOB (copiar/pegar el código).
+  // Inicia OAuth2 PKCE por REDIRECCIÓN (vuelve a cali_aec_viewer.html con ?code).
+  // Solo funciona en el dominio registrado en la app OAuth de OSM: OSM ya NO acepta
+  // el redirect out-of-band (urn:...:oob), así que desde localhost no hay conexión.
   async function beginAuth() {
     const clientId = getClientId();
     if (!clientId) throw new Error('Configura el Client ID (registra una app OAuth2 en ' + cfg().auth + '/oauth2/applications con permiso write_api).');
+    if (!useRedirect()) {
+      throw new Error('Conecta OSM desde https://app.lifecity.com.co — tu app OAuth de OSM solo tiene registrado ese redirect (OSM ya no acepta el flujo de copiar/pegar código). Una vez conectado allí, la sesión OSM queda guardada en ese navegador.');
+    }
     const verifier = b64url(crypto.getRandomValues(new Uint8Array(32)));
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
     localStorage.setItem(LS('verifier_' + server), verifier);
-    const ru = redirectUri();
     const q = new URLSearchParams({
-      client_id: clientId, redirect_uri: ru, response_type: 'code',
+      client_id: clientId, redirect_uri: WEB_REDIRECT, response_type: 'code',
       scope: 'write_api', code_challenge: b64url(new Uint8Array(digest)), code_challenge_method: 'S256',
     });
     const url = cfg().auth + '/oauth2/authorize?' + q.toString();
-    if (useRedirect()) { localStorage.setItem(LS('flow'), 'redirect'); location.href = url; }
-    else { localStorage.setItem(LS('flow'), 'oob'); window.open(url, '_blank'); }
+    localStorage.setItem(LS('flow'), 'redirect');
+    location.href = url;
     return url;
   }
 
