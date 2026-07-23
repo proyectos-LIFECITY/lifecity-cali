@@ -334,6 +334,15 @@
       <div class="hint" id="osm-status">No conectado. Publica las huellas de tus propiedades guardadas como edificios (building=yes). En producción, solo edificios que existan en la realidad.</div>
     </div>
 
+    <!-- ===== FASES DEL PROYECTO ===== -->
+    <div class="section">
+      <h2><span>Fases del proyecto</span><span class="dot" style="background:#6bd96b"></span></h2>
+      <button class="btn" id="btn-fase-decenal" style="border-color:#f4b942"><span class="ic">🛡</span> Cotizador Decenal</button>
+      <button class="btn" id="btn-fase-detalle" style="border-color:#4dd0e1"><span class="ic">📐</span> Diseño a detalle (muros + instalaciones)</button>
+      <button class="btn" id="btn-fase-fm" style="border-color:#6bd96b"><span class="ic">🏠</span> Facility Management</button>
+      <div class="hint">Cada fase importa la geometría del editor de masas (lote + masas + niveles).</div>
+    </div>
+
     <div class="section">
       <h2><span>Vista</span><span class="dot"></span></h2>
       <div class="row2">
@@ -1462,6 +1471,11 @@ $('btn-plan').onclick = async () => {
   catch (e) { toast('Licencia: ' + e.message, 'err'); }
 };
 // OSM: al volver del OAuth por redirección (?code=) el cliente ya canjeó el token
+// Fases del proyecto (importan la geometria del editor por handoff)
+function faseHandoff(f){ let h={}; try{h=JSON.parse(localStorage.getItem('cali_massing_handoff')||'{}');}catch(e){} h.fase=f; localStorage.setItem('cali_massing_handoff',JSON.stringify(h)); }
+$('btn-fase-decenal').onclick=()=>{ try{ const h=JSON.parse(localStorage.getItem('cali_massing_handoff')||'{}'); if(h&&(h.study||h.ring)) localStorage.setItem('cotizador_handoff',JSON.stringify(h)); }catch(e){} window.open('cotizador/webapp/cotizador.html?vista=decenal&t='+Date.now(),'_blank'); };
+$('btn-fase-detalle').onclick=()=>{ faseHandoff('detalle'); window.open('bim/masas.html','_blank'); };
+$('btn-fase-fm').onclick=()=>{ faseHandoff('fm'); window.open('bim/masas.html','_blank'); };
 window.addEventListener('osm-connected', () => { if (typeof updateOsmStatus === 'function') updateOsmStatus(); toast('Cuenta OSM conectada ✓', 'ok'); });
 (async () => {
   if (window.LifePlatform) { try { await LifePlatform.ready; } catch (e) {}

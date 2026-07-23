@@ -129,6 +129,7 @@
     </select>
     <div class="grow"></div>
     <button class="tabbtn" id="btn-claude"><span class="ic">✦</span> Diseñar con Claude</button>
+    <button class="tabbtn" id="btn-5d" style="border-color:#6bd96b;color:#6bd96b"><span class="ic">💰</span> 5D · 4D · Cotización</button>
     <button class="tabbtn" id="btn-rentas"><span class="ic">🏠</span> Rentas / Facility</button>
     <button class="tabbtn" id="btn-apu-db"><span class="ic">≣</span> Base APU</button>
     <button class="tabbtn" id="btn-logout" title="Cerrar sesión">⏻</button>
@@ -1493,6 +1494,14 @@ $('btn-add').onclick=addMass;
 $('btn-edges-toggle').onclick=()=>{ const w=$('edges-wrap'); const vis=w.style.display!=='none'; w.style.display=vis?'none':'block'; $('btn-edges-toggle').textContent=(vis?'▸':'▾')+' Mostrar/ocultar lados (frente · lateral · posterior)'; };
 // Crear proyecto desde el modal de presupuesto 5D (unificado)
 $('btn-cotizar-budget').onclick=()=>{ try{closeModal('modal-budget');}catch(e){} $('btn-cotizar').click(); };
+// Pestaña 5D·4D·Cotización EMBEBIDA: sincroniza el proyecto y abre el cotizador dentro del editor
+$('btn-5d').onclick=()=>{
+  try{ localStorage.setItem('cotizador_handoff', JSON.stringify(Object.assign({}, lot||{}, { study: collectStudy() }))); }catch(e){}
+  document.getElementById('cotizador-frame').src='../cotizador/webapp/cotizador.html?embed=1&t='+Date.now();
+  document.getElementById('cotizador-overlay').style.display='block';
+  if(window.LifeLearn) LifeLearn.log('open_5d_embed',{predio:lot&&lot.npn});
+};
+document.getElementById('cotizador-overlay-x').onclick=()=>{ document.getElementById('cotizador-overlay').style.display='none'; document.getElementById('cotizador-frame').src='about:blank'; };
 // ===== Sugerir masa con IA (Nemotron /suggest + protocolo de aprendizaje) — fusionado del editor simple =====
 $('btn-ai-mass').onclick=async()=>{
   if(footprint.length<3){ flash('Sin predio: abre un lote desde el visor.','#ff5252'); return; }
@@ -1823,6 +1832,11 @@ if(lot && lot.fase==='remodelacion'){
   setTimeout(()=>{ try{closeModal('modal-tipo');}catch(e){} const b=document.getElementById('tipo-remo'); if(b) b.click();
     flash('REMODELACIÓN: importa la NUBE DE PUNTOS del existente y crea los objetos BIM sobre ella (existente vs nuevo).','#9c6bff'); }, 800);
 }
+if(lot && lot.fase==='detalle'){
+  setTimeout(()=>{ try{closeModal('modal-tipo');}catch(e){}
+    const mep=document.getElementById('mep-info'); if(mep) mep.scrollIntoView({behavior:'smooth',block:'center'});
+    flash('DISEÑO A DETALLE: traza muros sanitarios y redes MEP (sanitaria · eléctrica · hidráulica) por nivel. El lote y las masas vienen del editor.','#4dd0e1'); }, 800);
+}
 if(lot && lot.fase==='fm'){
   setTimeout(()=>{ try{closeModal('modal-tipo');}catch(e){} openRentas();
     flash('Facility Management: '+rooms.length+' habitación(es) detectada(s) del proyecto.','#6bd96b'); }, 900);
@@ -1856,6 +1870,15 @@ setInterval(()=>{ renderRentMini(); if($('modal-rentas').classList.contains('on'
   console.log('[LifeLearn] protocolo de aprendizaje activo · endpoint:', L.endpoint());
 })();
 </script>
+
+<!-- ===================== OVERLAY: COTIZADOR EMBEBIDO (5D/4D/Modelo3D) ===================== -->
+<div id="cotizador-overlay" style="display:none;position:fixed;inset:0;z-index:80;background:rgba(5,8,13,.96)">
+  <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 14px;background:#11161e;border-bottom:1px solid #2a3548">
+    <b style="font:12px 'JetBrains Mono',monospace;color:#6bd96b">💰 Presupuesto 5D · Cronograma 4D · Cotización — proyecto sincronizado del editor</b>
+    <button id="cotizador-overlay-x" style="background:#1a2230;border:1px solid #2a3548;color:#e6ecf5;padding:6px 12px;border-radius:6px;cursor:pointer;font-family:monospace">✕ Volver al editor</button>
+  </div>
+  <iframe id="cotizador-frame" style="width:100%;height:calc(100% - 43px);border:0;background:#0a0d12"></iframe>
+</div>
 
 <!-- ===================== LICENCIAS: PRO gate (MCP Claude + detector de elementos) ===================== -->
 <script>

@@ -930,6 +930,7 @@ function importLifecityJSON(st, fileName){
    const counts={};
    (st.bim||[]).forEach(b=>{const k=b.typeId||'objeto';counts[k.charAt(0).toUpperCase()+k.slice(1)+'s']=(counts[k.charAt(0).toUpperCase()+k.slice(1)+'s']||0)+1;});
    if(st.walls&&st.walls.length)counts['Muros']=(counts['Muros']||0)+st.walls.length;
+   if(st.masses&&st.masses.length)counts['Masas del editor']=st.masses.length;
    if(st.rooms&&st.rooms.length)counts['Espacios']=st.rooms.length;
    if(st.mep&&st.mep.length)counts['Redes MEP']=st.mep.length;
    const niveles=(st.levels||[]).map(l=>({name:l.name,elev:l.elev}));
@@ -944,6 +945,7 @@ function importLifecityJSON(st, fileName){
    if(st.predio&&st.predio.npn){ P.model.npn=st.predio.npn; }
    if(res.presupuesto){ P.model.presupuestoBIM=res.presupuesto; }
    if(st.apus&&st.apus.length){P.presupuesto.apus=st.apus;renderApuInfo();}
+   try{ localStorage.setItem('cotizador_area_m2', String(Math.round(res.area_construida)||P.model.areaTotal||0)); }catch(e){}
    bindAll();renderModel();renderItems();autosave();
    flash(`Proyecto LifeCity importado: ${niveles.length} niveles, ${res.area_construida?Math.round(res.area_construida)+' m² construidos':'sin resumen de área'}${st.apus&&st.apus.length?', '+st.apus.length+' APUs':''}`);
 }
@@ -2285,14 +2287,42 @@ if(tabQ){const b=document.querySelector(`.tabbtn[data-tab="${tabQ}"]`);if(b)b.cl
   };
   $id('lc-obra').onclick=async()=>{
     let u=localStorage.getItem('cali_obra_url')||'';
-    if(!u){ u=prompt('URL de la app de Manejo de obra (repo 47 "Reconoce nube de puntos IA": backend FastAPI + frontend).
-Ej: http://localhost:5173','http://localhost:5173')||''; if(u) localStorage.setItem('cali_obra_url',u); }
+    if(!u){ u=prompt('URL de la app de Manejo de obra (repo 47 "Reconoce nube de puntos IA": backend FastAPI + frontend). Ej: http://localhost:5173','http://localhost:5173')||''; if(u) localStorage.setItem('cali_obra_url',u); }
     if(u){ if(window.LifeLearn) LifeLearn.log('fase_obra',{}); window.open(u,'_blank'); }
   };
   $id('lc-remo').onclick=()=>{
     handoffFase('remodelacion'); if(window.LifeLearn) LifeLearn.log('fase_remodelacion',{});
     window.open('../../bim/masas.html','_blank');
   };
+
+  // ===== Vista DECENAL reducida (?vista=decenal): solo cotizacion, aseguradoras, info y modelo 3D
+  const qs=new URLSearchParams(location.search);
+  if(qs.get('vista')==='decenal'){
+    ['presupuesto','cronograma','materiales'].forEach(t=>{ const b=document.querySelector('.tabbtn[data-tab="'+t+'"]'); if(b) b.style.display='none'; });
+    const f=$id('lc-fases'); if(f) f.style.display='none';
+  }
+  if(qs.get('embed')==='1'){ const f=$id('lc-fases'); if(f) f.style.display='none'; }
+
+  // ===== Cotizacion por m2 construido (valores por tipo - ELEXA REAL ESTATE, editables)
+  // Placeholders mercado Colombia 2026; se reemplazan cuando llegue el archivo oficial de Elexa.
+  const M2_DEF={ 'VIS':2200000, 'Estrato medio':3200000, 'Premium':4800000, 'Comercial':3800000, 'Industrial':2600000 };
+  let M2=M2_DEF; try{ M2=Object.assign({},M2_DEF,JSON.parse(localStorage.getItem('elexa_m2_valores')||'{}')); }catch(e){}
+  function areaProyecto(){ try{ const a=+localStorage.getItem('cotizador_area_m2'); if(a) return a; const h=JSON.parse(localStorage.getItem('cali_massing_handoff')||'{}'); return (h.study&&h.study.resumen&&h.study.resumen.area_construida)||h.area||0; }catch(e){ return 0; } }
+  const pan=document.createElement('div');
+  pan.id='elexa-m2';
+  pan.style.cssText='position:fixed;left:14px;bottom:14px;z-index:49;background:#11161e;border:1px solid #f4b942;border-radius:10px;padding:10px 12px;font:11px "JetBrains Mono",monospace;color:#e6ecf5;max-width:290px';
+  function renderM2(){
+    const a=areaProyecto(); const tipo=localStorage.getItem('elexa_m2_tipo')||'Estrato medio'; const v=M2[tipo]||0;
+    pan.innerHTML='<b style="color:#f4b942">💲 Cotizar por m² construido</b> <span style="color:#8b97aa">(Elexa · editable)</span><br>'+
+      'Tipo: <select id="m2-tipo" style="background:#0a0d12;color:#e6ecf5;border:1px solid #2a3548;font-family:monospace">'+
+      Object.keys(M2).map(k=>'<option'+(k===tipo?' selected':'')+'>'+k+'</option>').join('')+'</select> '+
+      '$<input id="m2-val" type="number" step="50000" value="'+v+'" style="width:92px;background:#0a0d12;color:#e6ecf5;border:1px solid #2a3548;font-family:monospace">/m²'+
+      '<br>Área construida: <b>'+Math.round(a).toLocaleString()+' m²</b>'+
+      '<br>TOTAL ESTIMADO: <b style="color:#6bd96b;font-size:14px">$ '+Math.round(a*v).toLocaleString('es-CO')+'</b>';
+    pan.querySelector('#m2-tipo').onchange=e=>{ localStorage.setItem('elexa_m2_tipo',e.target.value); renderM2(); };
+    pan.querySelector('#m2-val').onchange=e=>{ M2[pan.querySelector('#m2-tipo').value]=+e.target.value||0; localStorage.setItem('elexa_m2_valores',JSON.stringify(M2)); renderM2(); };
+  }
+  document.body.appendChild(pan); renderM2();
 })();
 </script>
 </body>
