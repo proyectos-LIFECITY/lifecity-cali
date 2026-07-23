@@ -110,6 +110,14 @@
       </div>
       <div id="mine-list" class="hint">El agente propone ciudades con catastro/datos abiertos para crear sus visores (como los de /intl).</div>
     </div>
+
+    <div class="osm-box">
+      <h2 style="margin:0">5 · Agente ferreterías (WhatsApp) <span style="color:var(--ok)">wa.me</span></h2>
+      <div class="row" style="margin:0">
+        <button class="btn ok" id="btn-ferre">🛠️ Buscar ferreterías y generar pitch (Nemotron)</button>
+      </div>
+      <div id="ferre-list" class="hint">Mina ferreterías reales de la zona (OSM), Nemotron redacta el mensaje de venta del software (detección de elementos → cotizar proyectos enteros en minutos) y te deja el botón de WhatsApp listo para enviar.</div>
+    </div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -183,6 +191,20 @@ $('btn-save').onclick=()=>{
   });
   localStorage.setItem(PKEY,JSON.stringify(arr)); if(window.LifePlatform) LifePlatform.pushDebounced();
   toast(`${add} construcción(es) guardada(s) en el visor principal`,'var(--ok)');
+};
+
+// ---- Agente ferreterías (WhatsApp wa.me) ----
+$('btn-ferre').onclick=async()=>{
+  const base=($('ep').value||'').replace(/\/agent\/maps.*/,'')||'http://localhost:8000';
+  $('btn-ferre').disabled=true; $('ferre-list').textContent='Minando ferreterías y redactando el pitch…';
+  try{
+    const r=await fetch(base+'/agent/ferreterias',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lat:+$('lat').value,lon:+$('lon').value,radius:6000})});
+    const d=await r.json(); if(d.error) throw new Error(d.error);
+    $('ferre-list').innerHTML='<b style="color:var(--viol)">'+(d.agente||'')+' · '+d.n+' ferreterías</b><br><i style="color:var(--text-dim)">Pitch: '+(d.pitch||'').slice(0,140)+'…</i><br><br>'+
+      (d.ferreterias||[]).map(f=>`• <b>${f.name}</b> ${f.phone?('· '+f.phone):'· (sin tel en OSM)'} — <a href="${f.wa}" target="_blank" style="color:var(--ok)">Enviar WhatsApp →</a>`).join('<br>');
+    if(window.LifeLearn) LifeLearn.log('ferreterias_pitch',{n:d.n});
+  }catch(e){ $('ferre-list').textContent='Error: '+e.message+' (¿backend /ai corriendo?)'; }
+  $('btn-ferre').disabled=false;
 };
 
 // ---- Minado de nuevas ciudades ----

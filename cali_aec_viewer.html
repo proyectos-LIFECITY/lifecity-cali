@@ -1449,8 +1449,7 @@ resize(); animate(0);
 
 // ===================== INIT =====================
 $('hud-center').textContent = `${state.centerLat.toFixed(5)}°, ${state.centerLon.toFixed(5)}°`;
-const savedEndpoint = localStorage.getItem('cali_tg_endpoint');
-if (savedEndpoint) $('tg-endpoint').value = savedEndpoint;
+$('tg-endpoint').value = localStorage.getItem('cali_tg_endpoint') || 'http://localhost:8000/photos';
 if (window.LifeCityAuth) { $('user-chip').textContent = '◉ ' + window.LifeCityAuth.name(); $('btn-logout').onclick = () => window.LifeCityAuth.logout(); }
 // Plan / licenciador (free = todo lo actual; PRO = accesos adicionales)
 $('btn-plan').onclick = async () => {

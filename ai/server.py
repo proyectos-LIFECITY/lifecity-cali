@@ -19,6 +19,7 @@ import traceback, os, json, datetime
 
 import massing_agent
 import agent_maps
+import telegram_bridge
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -42,7 +43,85 @@ class Predio(BaseModel):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "model": massing_agent.NEMOTRON_MODEL}
+    return {"ok": True, "model": massing_agent.NEMOTRON_MODEL,
+            "telegram": telegram_bridge._started}
+
+@app.on_event("startup")
+def _startup():
+    if telegram_bridge.start():
+        print("[telegram] polling ACTIVO (fotos con deteccion de predial)")
+    else:
+        print("[telegram] desactivado: pon TELEGRAM_BOT_TOKEN en keys.bat")
+
+# ===================== FOTOS TELEGRAM (para la capa del visor) =====================
+@app.get("/photos")
+def get_photos():
+    return {"photos": telegram_bridge.photos}
+
+# ===================== AGENTE FERRETERÍAS (WhatsApp wa.me) =====================
+@app.post("/agent/ferreterias")
+def agent_ferreterias(payload: dict):
+    """Mina ferreterías reales (OSM/Overpass) cerca del punto, genera el pitch con
+    Nemotron (fallback plantilla) y arma links wa.me listos para enviar."""
+    import urllib.request as _ur, urllib.parse as _up, re as _re
+    lat = float(payload.get("lat") or 3.4516); lon = float(payload.get("lon") or -76.5320)
+    radius = int(payload.get("radius") or 6000)
+    q = (f'[out:json][timeout:25];(node["shop"~"hardware|doityourself|trade|paint"](around:{radius},{lat},{lon});'
+         f'way["shop"~"hardware|doityourself|trade|paint"](around:{radius},{lat},{lon}););out center tags 50;')
+    shops = []
+    MIRRORS = ["https://overpass.kumi.systems/api/interpreter",
+               "https://overpass-api.de/api/interpreter",
+               "https://overpass.private.coffee/api/interpreter"]
+    data, last_err = None, None
+    for mirror in MIRRORS:
+        try:
+            req = _ur.Request(mirror, data=("data=" + _up.quote(q)).encode(),
+                              headers={"Content-Type": "application/x-www-form-urlencoded",
+                                       "User-Agent": "LifeCity/1.0"})
+            with _ur.urlopen(req, timeout=45) as resp:
+                data = json.loads(resp.read().decode())
+            break
+        except Exception as e:
+            last_err = e
+    try:
+        if data is None:
+            raise last_err or Exception("overpass sin respuesta")
+        for el in data.get("elements", []):
+            t = el.get("tags", {}) or {}
+            name = t.get("name")
+            if not name:
+                continue
+            la = el.get("lat") or (el.get("center") or {}).get("lat")
+            lo = el.get("lon") or (el.get("center") or {}).get("lon")
+            phone = t.get("contact:whatsapp") or t.get("phone") or t.get("contact:phone") or ""
+            shops.append({"name": name, "lat": la, "lon": lo, "phone": phone, "tipo": t.get("shop")})
+    except Exception as e:
+        return {"agente": "error overpass", "error": str(e), "ferreterias": []}
+    try:
+        from langchain_core.messages import SystemMessage, HumanMessage
+        llm = massing_agent._get_llm()
+        resp = llm.invoke([SystemMessage(content=(
+            "Redacta UN mensaje corto de WhatsApp (max 480 caracteres, espanol colombiano, tono cercano, 1-2 emojis) "
+            "para ferreterias: presenta LifeCity, software que DETECTA automaticamente los elementos de un proyecto "
+            "BIM (muros, tuberias, instalaciones, cantidades por nivel) para que la ferreteria cotice proyectos "
+            "ENTEROS en minutos. Cierra invitando a probarlo en https://app.lifecity.com.co . Responde SOLO el mensaje.")),
+            HumanMessage(content="Genera el mensaje.")])
+        pitch = getattr(resp, "content", str(resp)).strip()
+        agente = "Nemotron"
+    except Exception as e:
+        pitch = ("Hola 👋 Soy de LifeCity. Nuestro software DETECTA automáticamente los elementos de un proyecto de "
+                 "construcción (muros, instalaciones, cantidades por nivel) para que ustedes coticen proyectos ENTEROS "
+                 "en minutos, no en días. Pruébalo gratis en https://app.lifecity.com.co — ¿te muestro una demo de 5 min? 🏗️")
+        agente = f"fallback sin LLM ({str(e)[:40]})"
+    def walink(phone, name):
+        digits = _re.sub(r"\D", "", phone or "")
+        if digits and len(digits) == 10 and not digits.startswith("57"):
+            digits = "57" + digits
+        text = _up.quote(f"Hola {name} 👋 " + pitch)
+        return (f"https://wa.me/{digits}?text={text}") if digits else (f"https://wa.me/?text={text}")
+    for s in shops:
+        s["wa"] = walink(s["phone"], s["name"])
+    return {"agente": agente, "pitch": pitch, "n": len(shops), "ferreterias": shops}
 
 # ===================== PROTOCOLO DE APRENDIZAJE =====================
 # Cada input/decisión del usuario (masa, sólido, habitación, brief de interiores,

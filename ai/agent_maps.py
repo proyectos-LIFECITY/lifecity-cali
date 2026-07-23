@@ -67,6 +67,26 @@ def fetch_buildings(lat: float, lon: float, radius: float = 120, limit: int = 20
     return list(by_footprint.values())[:limit]
 
 
+def _pip(ring, lon, lat) -> bool:
+    inside = False
+    n = len(ring)
+    for i in range(n):
+        x1, y1 = ring[i]; x2, y2 = ring[(i + 1) % n]
+        if ((y1 > lat) != (y2 > lat)) and (lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1):
+            inside = not inside
+    return inside
+
+
+def predio_at(lat: float, lon: float):
+    """Predio del catastro en el punto (para las fotos de Telegram): el que CONTIENE
+    la coordenada; si ninguno, el más cercano en un radio de 25 m."""
+    bs = fetch_buildings(lat, lon, radius=25, limit=10)
+    for b in bs:
+        if _pip(b["ring"], lon, lat):
+            return b
+    return bs[0] if bs else None
+
+
 def gmaps(lat: float, lon: float, gkey: str | None = None) -> dict:
     link = f"https://www.google.com/maps/search/?api=1&query={lat},{lon}"
     streetview = f"https://www.google.com/maps/@?api=1&map_action=pano&viewpoint={lat},{lon}"
