@@ -197,7 +197,11 @@
           <button class="btn sm" id="btn-cloud-fit"><span class="ic">⊞</span> Centrar en lote</button>
           <button class="btn sm danger" id="btn-cloud-clear"><span class="ic">✕</span> Quitar</button>
         </div>
-        <div class="hint" id="cloud-info">PLY/PCD o ASCII X Y Z [R G B].</div>
+        <button class="btn ok" id="btn-detect" style="border-color:#9c6bff;color:#c9adff"><span class="ic">🧠</span> Detectar elementos (red neuronal) <b style="font-size:8px;background:#f4b942;color:#1a1305;padding:1px 5px;border-radius:8px">PRO</b></button>
+        <input type="file" id="file-detect" accept=".ply,.pcd,.xyz,.pts,.txt,.csv,.asc" style="display:none">
+        <a class="btn sm" id="lnk-detector" href="http://localhost:8068" target="_blank" style="text-decoration:none">Abrir detector completo (segmentar · corregir · reentrenar) ↗</a>
+        <div class="hint" id="cloud-info">PLY/PCD o ASCII X Y Z [R G B]. La red neuronal (repo 68, PointNet++ en tu GPU) detecta suelo/cielo/muro/columna/viga y crea objetos BIM.</div>
+        <div class="hint" id="detect-info"></div>
       </div>
     </div>
 
@@ -1490,6 +1494,35 @@ function exportJSON(){ download(JSON.stringify(collectStudy(),null,2),(lot&&lot.
 syncLabels();
 ['s-floors','s-fh','s-off'].forEach(id=>$(id).addEventListener('input',()=>{ syncLabels(); if(selMass){ selMass.floors=+$('s-floors').value; selMass.floorH=+$('s-fh').value; selMass.offset=+$('s-off').value; buildMass(selMass); refresh(); } }));
 $('btn-add').onclick=addMass;
+// ===== Detector de elementos (repo 68 · PointNet++ en la GPU) → objetos BIM =====
+$('btn-detect').onclick=()=>$('file-detect').click();
+$('file-detect').onchange=async(e)=>{
+  const f=e.target.files[0]; if(!f) return; e.target.value='';
+  const base=(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest').replace(/\/suggest.*/,'');
+  $('detect-info').textContent='🧠 La red neuronal está segmentando la nube en la GPU…';
+  try{
+    const fd=new FormData(); fd.append('f',f);
+    const r=await fetch(base+'/detect',{method:'POST',body:fd});
+    const d=await r.json();
+    if(!d.ok) throw new Error(d.error||'detector no disponible');
+    const c=d.counts_by_class||{}; const q=d.quantities||{};
+    const nCols=(q.por_clase&&q.elementos&&q.elementos.columnas)||0;
+    // crea objetos BIM a partir de las cantidades detectadas
+    let creados=0;
+    const lvl=activeLevelId();
+    function put(typeId, n, dims){ const t=catalogById(typeId); if(!t) return; for(let i=0;i<n;i++){ const off=(i- (n-1)/2)*2; bim.push({id:bid++,typeId,cat:t.cat,label:t.label,unit:t.unit,color:t.color,existing:true,level:lvl,x:off,z:0,w:dims?dims.w:t.dims.w,h:dims?dims.h:t.dims.h,d:dims?dims.d:t.dims.d,rotY:0,apu:null,fromDetector:true,roomId:null}); creados++; } }
+    const cols=(q.elementos&&q.elementos.columnas)|| (c.columna>50?Math.max(1,Math.round(c.columna/120)):0);
+    const vigas=(q.elementos&&q.elementos.vigas)||0;
+    if(cols) put('columna',Math.min(cols,40));
+    if(vigas) put('viga',Math.min(vigas,40));
+    if(typeof buildBim==='function') bim.forEach(x=>{ if(x.fromDetector) buildBim(x); });
+    refresh(); if(typeof renderPlan==='function') renderPlan();
+    $('detect-info').innerHTML='<b style="color:#6bd96b">✓ '+d.num_points.toLocaleString()+' puntos segmentados</b> · muro '+(c.muro||0)+' · columna '+(c.columna||0)+' · viga '+(c.viga||0)+
+      (q.dimensiones_m?('<br>Dimensiones '+q.dimensiones_m.join(' × ')+' m · altura libre '+q.altura_libre_m+' m'):'')+
+      (creados?('<br>'+creados+' objeto(s) BIM creados (existentes) desde la detección.'):'');
+    if(window.LifeLearn) LifeLearn.log('detect_elements',{points:d.num_points,muro:c.muro,columna:c.columna,viga:c.viga,creados});
+  }catch(err){ $('detect-info').innerHTML='<span style="color:#ff8f8f">'+err.message+' — arranca el detector (EJECUTAR_LOCAL.bat del repo 68).</span>'; }
+};
 // lados frente/lateral/posterior: colapsable
 $('btn-edges-toggle').onclick=()=>{ const w=$('edges-wrap'); const vis=w.style.display!=='none'; w.style.display=vis?'none':'block'; $('btn-edges-toggle').textContent=(vis?'▸':'▾')+' Mostrar/ocultar lados (frente · lateral · posterior)'; };
 // Crear proyecto desde el modal de presupuesto 5D (unificado)
@@ -1883,7 +1916,7 @@ setInterval(()=>{ renderRentMini(); if($('modal-rentas').classList.contains('on'
 <!-- ===================== LICENCIAS: PRO gate (MCP Claude + detector de elementos) ===================== -->
 <script>
 (function(){
-  var PRO_IDS=['btn-boxsel','btn-bim-create','btn-mcp-export','lbl-mcp-import'];
+  var PRO_IDS=['btn-boxsel','btn-bim-create','btn-mcp-export','lbl-mcp-import','btn-detect'];
   function upsell(){
     var t=document.getElementById('pro-toast');
     if(!t){ t=document.createElement('div'); t.id='pro-toast';

@@ -20,6 +20,7 @@ import traceback, os, json, datetime
 import massing_agent
 import agent_maps
 import telegram_bridge
+import detector as detector_bridge
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -221,6 +222,23 @@ def agent_cities(payload: dict):
             {"name": "Ciudad de Panamá", "pais": "Panamá", "fuente_datos": "ANATI", "razon": "hub inmobiliario regional"},
             {"name": "Barcelona", "pais": "España", "fuente_datos": "Catastro ES (INSPIRE WFS)", "razon": "catastro INSPIRE ya probado con Madrid"},
         ]}
+
+# ===================== DETECTOR DE ELEMENTOS (repo 68 · PointNet++) =====================
+@app.get("/detect/status")
+def detect_status():
+    return detector_bridge.status()
+
+@app.post("/detect")
+async def detect(f: UploadFile = File(...)):
+    """Detecta muros/columnas/vigas/suelo/cielo en la nube con la red neuronal
+    entrenada (repo 68). Devuelve conteos por clase + cantidades de obra."""
+    try:
+        raw = await f.read()
+        return detector_bridge.detect(raw, f.filename)
+    except Exception as e:
+        traceback.print_exc()
+        return {"ok": False, "error": str(e),
+                "hint": "Arranca el detector: EJECUTAR_LOCAL.bat del repo 68 (usa tu GPU)."}
 
 @app.post("/agent/maps")
 def agent_maps_ep(payload: dict):
