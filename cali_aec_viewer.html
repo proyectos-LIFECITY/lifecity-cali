@@ -1524,14 +1524,83 @@ function drawResults(results){
 function flyToLL(lat,lon){ const l=latLonToLocal(lat,lon); controls.target.set(l.x,0,l.z); camera.position.set(l.x+250,220,l.z+250); }
 function chatLog(html,who){ const box=$('ai-chat-log'); const d=document.createElement('div'); d.style.margin='4px 0'; d.style.color = who==='me'?'#f4b942':'#e6ecf5'; d.innerHTML=(who==='me'?'▸ ':'')+html; box.appendChild(d); box.scrollTop=box.scrollHeight; }
 $('ai-chat-toggle').onclick=()=>{ const b=$('ai-chat-body'); b.style.display=b.style.display==='none'?'block':'none'; };
+let lastResults=[], lastLayer='', lastQuery='';
+function _label(r){ return r.direpred||(r.icb?('ICB '+r.icb+(r.ica?(' / ICA '+r.ica):'')):(r.tratamient||'zona')); }
+function opCsv(){
+  if(!lastResults.length){ chatLog('No hay resultados aún. Haz una búsqueda primero.','ai'); return; }
+  const cols=[...new Set(lastResults.flatMap(r=>Object.keys(r).filter(k=>k!=='ring'&&k!=='centroid'&&r[k]!=null)))];
+  const esc=v=>('"'+String(v==null?'':v).replace(/"/g,'""')+'"');
+  const rows=[cols.join(','), ...lastResults.map(r=>cols.map(c=>esc(r[c])).join(','))];
+  const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='consulta_'+lastLayer+'.csv'; a.click();
+  chatLog('⇩ CSV con '+lastResults.length+' fila(s) descargado.','ai');
+}
+function opTable(){
+  if(!lastResults.length){ chatLog('No hay resultados aún.','ai'); return; }
+  const pref=['npn','direpred','nom_barrio','comuna','total_pis1','uso_princi','shape_area','icb','ica','tratamient','codigo'];
+  const cols=pref.filter(c=>lastResults.some(r=>r[c]!=null)).slice(0,6);
+  const hdr='<tr>'+cols.map(c=>'<th style="text-align:left;border-bottom:1px solid #2a3548;padding:2px 6px;color:#8b97aa">'+c+'</th>').join('')+'</tr>';
+  const body=lastResults.slice(0,50).map(r=>'<tr>'+cols.map(c=>'<td style="padding:2px 6px;border-bottom:1px solid #1a2230">'+(r[c]!=null?(c==='shape_area'?Math.round(r[c]):r[c]):'')+'</td>').join('')+'</tr>').join('');
+  chatLog('<div style="max-height:220px;overflow:auto"><table style="border-collapse:collapse;font-size:10px;width:100%">'+hdr+body+'</table></div>'+(lastResults.length>50?('<span style="color:#8b97aa">(mostrando 50 de '+lastResults.length+' · usa CSV para todo)</span>'):''),'ai');
+}
+function opPrediales(){
+  if(!lastResults.length){ chatLog('No hay resultados aún.','ai'); return; }
+  const ns=[...new Set(lastResults.map(r=>r.npn).filter(Boolean))];
+  if(!ns.length){ chatLog('Esta capa no trae número predial (NPN). Prueba una consulta de "terrenos/predios".','ai'); return; }
+  const wrap=document.createElement('div'); wrap.innerHTML='<b style="color:#6bd96b">'+ns.length+' número(s) predial(es) extraído(s):</b>';
+  const ta=document.createElement('textarea'); ta.value=ns.join('\n'); ta.style.cssText='width:100%;height:120px;background:#0a0d12;color:#e6ecf5;border:1px solid #2a3548;font-family:monospace;font-size:10px'; wrap.appendChild(ta);
+  const b=document.createElement('button'); b.textContent='Copiar'; b.style.cssText='margin-top:4px;background:#9c6bff;border:0;color:#fff;padding:4px 10px;border-radius:5px;cursor:pointer'; b.onclick=()=>{ta.select();document.execCommand('copy');b.textContent='Copiado ✓';}; wrap.appendChild(b);
+  $('ai-chat-log').appendChild(wrap); $('ai-chat-log').scrollTop=1e6;
+}
+function opStats(){
+  if(!lastResults.length){ chatLog('No hay resultados aún.','ai'); return; }
+  const n=lastResults.length;
+  const areas=lastResults.map(r=>+r.shape_area).filter(x=>x>0);
+  const pis=lastResults.map(r=>+r.total_pis1).filter(x=>x>0);
+  const grp=(f)=>{ const m={}; lastResults.forEach(r=>{const k=r[f]; if(k!=null){m[k]=(m[k]||0)+1;}}); return Object.entries(m).sort((a,b)=>b[1]-a[1]).slice(0,6); };
+  let html='<b style="color:#6bd96b">Resumen de '+n+' resultado(s)</b>';
+  if(areas.length) html+='<br>Área: media '+Math.round(areas.reduce((a,b)=>a+b,0)/areas.length)+' m² · total '+Math.round(areas.reduce((a,b)=>a+b,0)).toLocaleString()+' m²';
+  if(pis.length) html+='<br>Pisos: media '+(pis.reduce((a,b)=>a+b,0)/pis.length).toFixed(1)+' · máx '+Math.max(...pis);
+  ['nom_barrio','comuna','uso_princi','icb'].forEach(f=>{ const g=grp(f); if(g.length) html+='<br>Por '+f+': '+g.map(kv=>kv[0]+' ('+kv[1]+')').join(', '); });
+  chatLog(html,'ai');
+}
+function opSave(){
+  if(!lastResults.length){ chatLog('No hay resultados aún.','ai'); return; }
+  const withRing=lastResults.filter(r=>r.ring&&r.ring.length>=3&&r.centroid);
+  if(!withRing.length){ chatLog('Estos resultados no tienen geometría de predio para guardar.','ai'); return; }
+  const key=(window.LifePlatform&&LifePlatform.isLogged())?LifePlatform.projectsKey():'cali_aec_props_v1';
+  let arr=[]; try{ arr=JSON.parse(localStorage.getItem(key)||'[]'); }catch(e){}
+  let add=0;
+  withRing.forEach(r=>{ const id='q_'+(r.npn||Math.random().toString(36).slice(2)); if(arr.some(p=>p.id===id))return;
+    arr.push({id,name:r.direpred||('Predio '+(r.npn||'')),npn:r.npn||'',numepred:'',direpred:r.direpred||'',nom_barrio:r.nom_barrio||'',comuna:r.comuna||'',lat:r.centroid.lat,lon:r.centroid.lon,area:Math.round(r.shape_area||0),icb:null,ica:null,h:(r.total_pis1||3)*3,stage:'Consulta',saved:true,ifc:false,pcd:false,ring:r.ring}); add++; });
+  localStorage.setItem(key,JSON.stringify(arr)); if(window.LifePlatform)LifePlatform.pushDebounced();
+  try{ loadPersistedProperties&&loadPersistedProperties(); }catch(e){}
+  chatLog('★ '+add+' resultado(s) guardado(s) como propiedades en tu set.','ai');
+}
+function chatActions(){
+  const bar=document.createElement('div'); bar.style.cssText='display:flex;flex-wrap:wrap;gap:4px;margin:4px 0';
+  const mk=(t,fn)=>{ const b=document.createElement('button'); b.textContent=t; b.style.cssText='background:#1a2230;border:1px solid #2a3548;color:#e6ecf5;padding:3px 7px;border-radius:5px;cursor:pointer;font-size:10px;font-family:monospace'; b.onclick=fn; return b; };
+  bar.appendChild(mk('📋 Tabla',opTable)); bar.appendChild(mk('#️⃣ Prediales',opPrediales)); bar.appendChild(mk('📊 Resumen',opStats)); bar.appendChild(mk('⇩ CSV',opCsv)); bar.appendChild(mk('★ Guardar',opSave));
+  $('ai-chat-log').appendChild(bar); $('ai-chat-log').scrollTop=1e6;
+}
+function tryOp(q){
+  const t=q.toLowerCase();
+  if(!lastResults.length) return false;
+  if(/predial|prediales|npn/.test(t)){ opPrediales(); return true; }
+  if(/\btabla\b|tabula/.test(t)){ opTable(); return true; }
+  if(/\bcsv\b|export|descarga/.test(t)){ opCsv(); return true; }
+  if(/resumen|promedio|media|estad|suma|agrupa/.test(t)){ opStats(); return true; }
+  if(/gu[aá]rda|guardar/.test(t)){ opSave(); return true; }
+  return false;
+}
 async function askAI(){
   const q=$('ai-chat-in').value.trim(); if(!q) return; $('ai-chat-in').value='';
   chatLog(q,'me');
-  // consulta rápida sobre MIS propiedades cargadas (cliente)
+  if(tryOp(q)) return;
   if(/mis (propiedades|proyectos|terrenos)/i.test(q)){
     const mine=state.projects.filter(p=>p.saved);
-    chatLog(`Tienes <b>${mine.length}</b> propiedad(es) guardada(s): `+mine.slice(0,8).map(p=>p.name).join(', '),'ai');
-    return;
+    chatLog('Tienes <b>'+mine.length+'</b> propiedad(es) guardada(s): '+mine.slice(0,8).map(p=>p.name).join(', '),'ai');
+    lastResults=mine.map(p=>({npn:p.npn,direpred:p.direpred||p.name,nom_barrio:p.nom_barrio,comuna:p.comuna,shape_area:p.area,centroid:{lat:p.lat,lon:p.lon},ring:p.ring})); lastLayer='mis_props'; chatActions(); return;
   }
   const base=(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest').replace(/\/suggest.*/,'');
   chatLog('<span style="color:#8b97aa">consultando el catastro…</span>','ai');
@@ -1540,15 +1609,17 @@ async function askAI(){
     const r=await fetch(base+'/agent/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     const d=await r.json();
     if(!d.ok){ chatLog(d.mensaje||d.error||'No pude resolver la consulta.','ai'); return; }
-    drawResults(d.results||[]);
-    const first=(d.results||[]).find(x=>x.centroid); if(first) flyToLL(first.centroid.lat,first.centroid.lon);
-    const cap=(d.results||[]).slice(0,6).map(r=>{
-      const dir=r.direpred||(r.icb?('ICB '+r.icb+(r.ica?(' / ICA '+r.ica):'')):(r.tratamient||'zona'));
+    lastResults=d.results||[]; lastLayer=d.layer||''; lastQuery=q;
+    drawResults(lastResults);
+    const first=lastResults.find(x=>x.centroid); if(first) flyToLL(first.centroid.lat,first.centroid.lon);
+    const esCount=/cu[aá]nt|cantidad|n[uú]mero de|total de/.test(q.toLowerCase());
+    const cap=lastResults.slice(0,5).map(r=>{
       const extra=r.total_pis1?(' · '+r.total_pis1+' pisos'):(r.shape_area?(' · '+Math.round(r.shape_area)+' m²'):'');
-      return `<a href="#" data-lat="${r.centroid?r.centroid.lat:''}" data-lon="${r.centroid?r.centroid.lon:''}" style="color:#c9adff">${dir}${extra}</a>`;
+      return '<a href="#" data-lat="'+(r.centroid?r.centroid.lat:'')+'" data-lon="'+(r.centroid?r.centroid.lon:'')+'" style="color:#c9adff">'+_label(r)+extra+'</a>';
     }).join('<br>');
-    chatLog(`<b style="color:#6bd96b">${d.n} resultado(s)</b> · capa <b>${d.layer}</b> · ${d.agente}<br>${cap}${d.n>6?'<br>… y más ('+ (d.n) +' dibujados en el mapa)':''}`,'ai');
+    chatLog((esCount?('<b style="color:#f4b942;font-size:14px">'+d.n+'</b> resultado(s). '):'')+'<b style="color:#6bd96b">'+d.n+'</b> en <b>'+d.layer+'</b> · '+d.agente+'<br>'+cap+(d.n>5?'<br>… y más ('+d.n+' dibujados)':''),'ai');
     $('ai-chat-log').querySelectorAll('a[data-lat]').forEach(a=>a.onclick=(e)=>{e.preventDefault(); if(a.dataset.lat) flyToLL(+a.dataset.lat,+a.dataset.lon);});
+    chatActions();
     if(window.LifeLearn) LifeLearn.log('db_query',{q,layer:d.layer,n:d.n});
   }catch(e){ chatLog('Error: '+e.message+' (¿corriste Iniciar LifeCity.bat?)','ai'); }
 }
