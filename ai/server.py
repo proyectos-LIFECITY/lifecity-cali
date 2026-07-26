@@ -21,6 +21,7 @@ import massing_agent
 import agent_maps
 import telegram_bridge
 import detector as detector_bridge
+import db_agent
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 os.makedirs(DATA_DIR, exist_ok=True)
@@ -239,6 +240,21 @@ async def detect(f: UploadFile = File(...)):
         traceback.print_exc()
         return {"ok": False, "error": str(e),
                 "hint": "Arranca el detector: EJECUTAR_LOCAL.bat del repo 68 (usa tu GPU)."}
+
+@app.post("/agent/ask")
+def agent_ask(payload: dict):
+    """Consulta en lenguaje natural sobre el catastro. payload: {pregunta, bbox?[w,s,e,n]}"""
+    try:
+        preg = payload.get("pregunta") or payload.get("q") or ""
+        bbox = payload.get("bbox")
+        if bbox and len(bbox) == 4:
+            bbox = [float(x) for x in bbox]
+        else:
+            bbox = None
+        return db_agent.ask(preg, bbox)
+    except Exception as e:
+        traceback.print_exc()
+        return {"ok": False, "error": str(e), "results": []}
 
 @app.post("/agent/maps")
 def agent_maps_ep(payload: dict):

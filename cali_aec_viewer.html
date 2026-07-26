@@ -419,6 +419,20 @@
   </aside>
 </div>
 
+<!-- ===== ASISTENTE DE DATOS (IA) — búsquedas en lenguaje natural ===== -->
+<div id="ai-chat" style="position:fixed;right:16px;bottom:16px;z-index:60;width:340px;font-family:'JetBrains Mono',monospace">
+  <button id="ai-chat-toggle" style="width:100%;background:#9c6bff;border:0;color:#fff;padding:10px;border-radius:8px;cursor:pointer;font-weight:600;font-size:12px">🔎 Asistente de datos (IA)</button>
+  <div id="ai-chat-body" style="display:none;background:#11161e;border:1px solid #9c6bff;border-radius:10px;margin-top:6px;padding:10px">
+    <div style="font-size:9px;color:#8b97aa;margin-bottom:6px">Pregunta en lenguaje natural. Ej: <i>"terrenos con índice de construcción 3"</i>, <i>"predios de 6 pisos en barrio Granada"</i>, <i>"lotes de más de 400 m² residencial"</i>.</div>
+    <div id="ai-chat-log" style="max-height:240px;overflow:auto;font-size:11px;color:#e6ecf5;margin-bottom:6px"></div>
+    <div style="display:flex;gap:6px">
+      <input id="ai-chat-in" placeholder="Escribe tu consulta…" style="flex:1;background:#0a0d12;border:1px solid #2a3548;color:#e6ecf5;padding:8px;border-radius:6px;font-family:monospace;font-size:12px">
+      <button id="ai-chat-send" style="background:#9c6bff;border:0;color:#fff;padding:8px 12px;border-radius:6px;cursor:pointer">➤</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;font-size:9px;color:#8b97aa;margin-top:6px"><input type="checkbox" id="ai-chat-view" checked> Solo en la vista actual del mapa</label>
+  </div>
+</div>
+
 <script type="importmap">
 {
   "imports": {
@@ -1483,6 +1497,63 @@ window.addEventListener('osm-connected', () => { if (typeof updateOsmStatus === 
   loadPersistedProperties();
   renderStudies();
 })();
+
+// ===================== ASISTENTE DE DATOS (IA) — consultas en lenguaje natural =====================
+const gQuery = new THREE.Group(); scene.add(gQuery);
+function viewBbox(){
+  const dist = camera.position.distanceTo(controls.target);
+  const half = Math.max(300, Math.min(4000, dist*0.6));
+  const c = localToLatLon(controls.target.x, controls.target.z);
+  const a = localToLatLon(controls.target.x-half, controls.target.z+half);
+  const b = localToLatLon(controls.target.x+half, controls.target.z-half);
+  return [Math.min(a.lon,b.lon), Math.min(a.lat,b.lat), Math.max(a.lon,b.lon), Math.max(a.lat,b.lat)];
+}
+function drawResults(results){
+  gQuery.clear();
+  const mat=new THREE.LineBasicMaterial({color:0x9c6bff});
+  const fill=new THREE.MeshBasicMaterial({color:0x9c6bff,transparent:true,opacity:0.18,side:THREE.DoubleSide});
+  let drawn=0;
+  for(const r of results){ if(!r.ring||r.ring.length<3||drawn>200) continue;
+    const pts=r.ring.map(([lon,lat])=>{const l=latLonToLocal(lat,lon);return new THREE.Vector3(l.x,0.5,l.z);});
+    pts.push(pts[0].clone());
+    gQuery.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),mat));
+    drawn++;
+  }
+  updateObjCount();
+}
+function flyToLL(lat,lon){ const l=latLonToLocal(lat,lon); controls.target.set(l.x,0,l.z); camera.position.set(l.x+250,220,l.z+250); }
+function chatLog(html,who){ const box=$('ai-chat-log'); const d=document.createElement('div'); d.style.margin='4px 0'; d.style.color = who==='me'?'#f4b942':'#e6ecf5'; d.innerHTML=(who==='me'?'▸ ':'')+html; box.appendChild(d); box.scrollTop=box.scrollHeight; }
+$('ai-chat-toggle').onclick=()=>{ const b=$('ai-chat-body'); b.style.display=b.style.display==='none'?'block':'none'; };
+async function askAI(){
+  const q=$('ai-chat-in').value.trim(); if(!q) return; $('ai-chat-in').value='';
+  chatLog(q,'me');
+  // consulta rápida sobre MIS propiedades cargadas (cliente)
+  if(/mis (propiedades|proyectos|terrenos)/i.test(q)){
+    const mine=state.projects.filter(p=>p.saved);
+    chatLog(`Tienes <b>${mine.length}</b> propiedad(es) guardada(s): `+mine.slice(0,8).map(p=>p.name).join(', '),'ai');
+    return;
+  }
+  const base=(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest').replace(/\/suggest.*/,'');
+  chatLog('<span style="color:#8b97aa">consultando el catastro…</span>','ai');
+  try{
+    const body={pregunta:q}; if($('ai-chat-view').checked) body.bbox=viewBbox();
+    const r=await fetch(base+'/agent/ask',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    const d=await r.json();
+    if(!d.ok){ chatLog(d.mensaje||d.error||'No pude resolver la consulta.','ai'); return; }
+    drawResults(d.results||[]);
+    const first=(d.results||[]).find(x=>x.centroid); if(first) flyToLL(first.centroid.lat,first.centroid.lon);
+    const cap=(d.results||[]).slice(0,6).map(r=>{
+      const dir=r.direpred||(r.icb?('ICB '+r.icb+(r.ica?(' / ICA '+r.ica):'')):(r.tratamient||'zona'));
+      const extra=r.total_pis1?(' · '+r.total_pis1+' pisos'):(r.shape_area?(' · '+Math.round(r.shape_area)+' m²'):'');
+      return `<a href="#" data-lat="${r.centroid?r.centroid.lat:''}" data-lon="${r.centroid?r.centroid.lon:''}" style="color:#c9adff">${dir}${extra}</a>`;
+    }).join('<br>');
+    chatLog(`<b style="color:#6bd96b">${d.n} resultado(s)</b> · capa <b>${d.layer}</b> · ${d.agente}<br>${cap}${d.n>6?'<br>… y más ('+ (d.n) +' dibujados en el mapa)':''}`,'ai');
+    $('ai-chat-log').querySelectorAll('a[data-lat]').forEach(a=>a.onclick=(e)=>{e.preventDefault(); if(a.dataset.lat) flyToLL(+a.dataset.lat,+a.dataset.lon);});
+    if(window.LifeLearn) LifeLearn.log('db_query',{q,layer:d.layer,n:d.n});
+  }catch(e){ chatLog('Error: '+e.message+' (¿corriste Iniciar LifeCity.bat?)','ai'); }
+}
+$('ai-chat-send').onclick=askAI;
+$('ai-chat-in').addEventListener('keydown',e=>{ if(e.key==='Enter') askAI(); });
 window.addEventListener('focus', renderStudies);
 </script>
 </body>
