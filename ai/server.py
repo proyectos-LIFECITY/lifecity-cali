@@ -28,9 +28,13 @@ os.makedirs(DATA_DIR, exist_ok=True)
 LOG_PATH = os.path.join(DATA_DIR, "interactions.jsonl")
 
 app = FastAPI(title="LifeCity Massing Agent")
+# CORS: por defecto abierto; en la nube pon LIFECITY_CORS con tus dominios
+# (coma-separados) para restringir. '*' o vacío = cualquiera.
+_cors = os.environ.get("LIFECITY_CORS", "*").strip()
+_origins = ["*"] if (not _cors or _cors == "*") else [o.strip() for o in _cors.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],           # en producción: ["https://app.lifecity.com.co"]
+    allow_origins=_origins,
     allow_methods=["*"], allow_headers=["*"],
 )
 
@@ -294,3 +298,11 @@ def suggest(p: Predio):
         floors = max(1, round(max_pot / area)) if area else 5
         return {"masses": [{"floors": int(floors), "floorH": 3.0, "offset": 3.0, "baseZ": 0}],
                 "solids": [], "note": f"fallback sin LLM: {e}"}
+
+
+if __name__ == "__main__":
+    # Arranque directo (paridad nube/local). En la nube Render usa startCommand
+    # con $PORT; en local el agente LifeCity Local usa 8000.
+    import uvicorn
+    port = int(os.environ.get("PORT", "8000"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

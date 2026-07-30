@@ -6,6 +6,7 @@
 <script src="auth.js"></script>
 <script src="../supabase-config.js"></script>
 <script src="../platform.js"></script>
+<script src="../lifecity-config.js"></script>
 <script src="../osm-publish.js"></script>
 <title>LifeCity · Agente de mapas (construcciones reales de Cali)</title>
 <style>
@@ -128,7 +129,7 @@ let RESULTS={buildings:[],masas:[]};
 function toast(m,c){const t=$('toast');t.textContent=m;t.style.borderColor=c||'var(--accent)';t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),3800);}
 function setMap(){ const lat=+$('lat').value,lon=+$('lon').value; $('map').src=`https://maps.google.com/maps?q=${lat},${lon}&z=18&output=embed`; }
 $('lat').oninput=setMap; $('lon').oninput=setMap; setMap();
-$('ep').value=localStorage.getItem('cali_agent_endpoint')||'http://localhost:8000/agent/maps';
+$('ep').value=localStorage.getItem('cali_agent_endpoint')||(window.LC?LC.cloud('/agent/maps'):'http://localhost:8000/agent/maps');
 if(window.LifeCityAuth){ $('user').textContent='◉ '+LifeCityAuth.name(); $('logout').onclick=()=>LifeCityAuth.logout(); }
 
 // Geocodificar dirección (Nominatim OSM, gratis)

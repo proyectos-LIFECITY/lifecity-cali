@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Descargar LifeCity Local · Funciones GPU en tu PC</title>
+<style>
+  :root{--bg-0:#0a0d12;--bg-1:#11161e;--bg-2:#1a2230;--line:#2a3548;--text:#e6ecf5;--dim:#8b97aa;--accent:#f4b942;--viol:#9c6bff;--ok:#6bd96b}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg-0);color:var(--text);font-family:system-ui,'Segoe UI',sans-serif;line-height:1.55;min-height:100vh}
+  header{padding:16px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+  header h1{font-size:16px}header h1 b{color:var(--accent)}
+  header a{color:var(--dim);text-decoration:none;font-size:13px}
+  .wrap{max-width:760px;margin:0 auto;padding:30px 24px 60px}
+  .hero{text-align:center;padding:20px 0 26px}
+  .hero .em{font-size:44px}
+  .hero h2{font-size:24px;margin:10px 0 6px}
+  .hero p{color:var(--dim);font-size:14px;max-width:520px;margin:0 auto}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:22px 0}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--bg-1);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .card h3{font-size:13px;margin-bottom:6px}
+  .card p{font-size:12.5px;color:var(--dim)}
+  .card.cloud{border-left:3px solid var(--ok)}
+  .card.local{border-left:3px solid var(--viol)}
+  .dl{display:block;text-align:center;background:var(--accent);color:#1a1305;font-weight:800;font-size:16px;padding:16px;border-radius:12px;text-decoration:none;margin:8px 0}
+  .dl small{display:block;font-weight:600;font-size:11px;opacity:.75;margin-top:2px}
+  ol{margin:14px 0 0 20px;font-size:13px;color:var(--dim)}ol li{margin:6px 0}
+  ol b{color:var(--text)}
+  .note{background:var(--bg-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--dim);margin-top:20px}
+  .note b{color:var(--accent)}
+  code{background:#000;padding:1px 6px;border-radius:5px;color:var(--ok);font-family:'JetBrains Mono',monospace;font-size:12px}
+  .status{font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Life<b>City</b> · Local</h1>
+  <a href="cali_aec_viewer.html">← Volver al visor</a>
+</header>
+<div class="wrap">
+  <div class="hero">
+    <div class="em">🖥️⚡</div>
+    <h2>LifeCity Local</h2>
+    <p>Casi todo LifeCity corre en la nube. Algunas funciones usan tu <b>tarjeta gráfica (GPU)</b> y por eso se ejecutan en tu PC. Instala este agente una sola vez.</p>
+  </div>
+
+  <div class="grid">
+    <div class="card cloud">
+      <h3>☁️ En la nube (ya activo)</h3>
+      <p>Catastro IDESC, agentes de mapas, consultas en lenguaje natural, ferreterías, Telegram, IA de texto (Nemotron). No requiere instalar nada.</p>
+    </div>
+    <div class="card local">
+      <h3>💻 En tu PC (este instalador)</h3>
+      <p>Detector de elementos (red neuronal PointNet++) y procesamiento de nube de puntos. Necesitan GPU/CUDA y corren en <code>127.0.0.1</code>.</p>
+    </div>
+  </div>
+
+  <a class="dl" href="local-agent/LifeCity-Local-Setup.bat" download>
+    ⇩ Descargar LifeCity Local (Windows)
+    <small>doble clic en el archivo descargado · pide permiso de administrador</small>
+  </a>
+  <div class="status" id="st"></div>
+
+  <h3 style="margin-top:24px;font-size:14px">Cómo instalar</h3>
+  <ol>
+    <li>Descarga y ejecuta <b>LifeCity-Local-Setup.bat</b>.</li>
+    <li>Acepta el aviso de <b>Control de cuentas de usuario</b> (registra el arranque automático).</li>
+    <li>Espera a que instale Python + PyTorch y el modelo (la 1ª vez tarda unos minutos).</li>
+    <li>Vuelve al <b><a href="cali_aec_viewer.html" style="color:var(--accent)">visor</a></b> o al editor y usa el detector: se conecta solo.</li>
+  </ol>
+
+  <div class="note">
+    <b>Privacidad y permisos:</b> el agente escucha únicamente en <code>127.0.0.1</code> (tu máquina), no abre puertos a internet ni pide reglas de firewall entrantes. Se ejecuta con <b>tus</b> permisos de usuario. Para quitarlo: Programador de tareas de Windows → elimina la tarea <b>“LifeCity Local”</b>.
+  </div>
+
+  <div class="note">
+    ¿Ya lo instalaste? Esta página comprueba si el agente responde:
+    <span id="probe">comprobando…</span>
+  </div>
+</div>
+
+<script src="lifecity-config.js"></script>
+<script>
+  LC.localReady(2500).then(function(up){
+    document.getElementById('probe').innerHTML = up
+      ? '<b style="color:#6bd96b">✓ LifeCity Local está corriendo en tu PC.</b>'
+      : '<b style="color:#8b97aa">no detectado todavía (instálalo o espera al arranque).</b>';
+  });
+</script>
+</body>
+</html>

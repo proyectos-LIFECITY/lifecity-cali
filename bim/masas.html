@@ -6,6 +6,7 @@
 <script src="auth.js"></script>
 <script src="../supabase-config.js"></script>
 <script src="../platform.js"></script>
+<script src="../lifecity-config.js"></script>
 <script src="learn.js"></script>
 <title>LifeCity BIM · Editor 5D (Masas · Nube→BIM · MEP · Presupuesto · Rentas)</title>
 <!-- SheetJS para importar base de datos APU desde Excel (repo 1) -->
@@ -1498,7 +1499,9 @@ $('btn-add').onclick=addMass;
 $('btn-detect').onclick=()=>$('file-detect').click();
 $('file-detect').onchange=async(e)=>{
   const f=e.target.files[0]; if(!f) return; e.target.value='';
-  const base=(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest').replace(/\/suggest.*/,'');
+  // El detector usa GPU: corre en el PC del usuario (LifeCity Local), no en la nube.
+  if(window.LC){ const up=await LC.ensureLocal('El detector de elementos'); if(!up){ $('detect-info').innerHTML='<span style="color:#c9adff">Instala <b>LifeCity Local</b> para usar la GPU.</span>'; return; } }
+  const base=(window.LC?LC.localAgent:(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest').replace(/\/suggest.*/,''));
   $('detect-info').textContent='🧠 La red neuronal está segmentando la nube en la GPU…';
   try{
     const fd=new FormData(); fd.append('f',f);
@@ -1521,7 +1524,7 @@ $('file-detect').onchange=async(e)=>{
       (q.dimensiones_m?('<br>Dimensiones '+q.dimensiones_m.join(' × ')+' m · altura libre '+q.altura_libre_m+' m'):'')+
       (creados?('<br>'+creados+' objeto(s) BIM creados (existentes) desde la detección.'):'');
     if(window.LifeLearn) LifeLearn.log('detect_elements',{points:d.num_points,muro:c.muro,columna:c.columna,viga:c.viga,creados});
-  }catch(err){ $('detect-info').innerHTML='<span style="color:#ff8f8f">'+err.message+' — arranca el detector (EJECUTAR_LOCAL.bat del repo 68).</span>'; }
+  }catch(err){ $('detect-info').innerHTML='<span style="color:#ff8f8f">'+err.message+' — <a href="../descargar.html" target="_blank" style="color:#c9adff">instala/arranca LifeCity Local</a> (usa tu GPU).</span>'; }
 };
 // lados frente/lateral/posterior: colapsable
 $('btn-edges-toggle').onclick=()=>{ const w=$('edges-wrap'); const vis=w.style.display!=='none'; w.style.display=vis?'none':'block'; $('btn-edges-toggle').textContent=(vis?'▸':'▾')+' Mostrar/ocultar lados (frente · lateral · posterior)'; };
@@ -1538,7 +1541,7 @@ document.getElementById('cotizador-overlay-x').onclick=()=>{ document.getElement
 // ===== Sugerir masa con IA (Nemotron /suggest + protocolo de aprendizaje) — fusionado del editor simple =====
 $('btn-ai-mass').onclick=async()=>{
   if(footprint.length<3){ flash('Sin predio: abre un lote desde el visor.','#ff5252'); return; }
-  const url=(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest');
+  const url=(window.LC?LC.cloud('/suggest'):(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest'));
   const payload={ predio:{npn:lot&&lot.npn,area:lotArea,icb,ica}, ring:lot&&lot.ring, levels:levels.map(l=>({name:l.name,elev:l.elev})), objetivo:'Proponer volumetría que aproveche el índice sin exceder el POT.' };
   flash('Consultando IA (Nemotron/LangChain)…','#9c6bff');
   try{
@@ -1760,7 +1763,7 @@ $('btn-claude').onclick=()=>{
   $('cl-room').innerHTML=rooms.map(r=>`<option value="${r.id}">${r.name} · ${r.uso||'habitacion'} · ${r.w.toFixed(1)}×${r.d.toFixed(1)} m · ${levelName(r.level)}</option>`).join('');
   if(selEl&&selEl.kind==='room') $('cl-room').value=selEl.id;
   $('cl-key').value=localStorage.getItem(CL_KEY)||'';
-  $('cl-nemo-endpoint').value=localStorage.getItem('cali_interiors_endpoint')||'http://localhost:8000/interiors';
+  $('cl-nemo-endpoint').value=localStorage.getItem('cali_interiors_endpoint')||(window.LC?LC.cloud('/interiors'):'http://localhost:8000/interiors');
   openModal('modal-claude');
 };
 // Crea los elementos BIM a partir de la respuesta de la IA (Claude o Nemotron) y APRENDE del diseño aceptado.
@@ -1795,7 +1798,7 @@ $('cl-go').onclick=async()=>{
 };
 // ---- Nemotron (backend local /ai · aprende de los diseños aceptados) ----
 async function nemotronDesign(room, brief){
-  const url=($('cl-nemo-endpoint').value||'http://localhost:8000/interiors').trim();
+  const url=($('cl-nemo-endpoint').value||(window.LC?LC.cloud('/interiors'):'http://localhost:8000/interiors')).trim();
   localStorage.setItem('cali_interiors_endpoint',url);
   const catalog=CATALOG.map(c=>({id:c.id,label:c.label,w:c.dims.w,h:c.dims.h,d:c.dims.d}));
   const resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},

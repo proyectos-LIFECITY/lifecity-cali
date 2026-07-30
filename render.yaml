@@ -1,0 +1,40 @@
+# ==========================================================================
+# LifeCity · Backend en la nube (Render Blueprint)
+# --------------------------------------------------------------------------
+# Despliega el backend FastAPI (catastro, agentes, db_agent, ferreterías,
+# Telegram, IA de texto) en la nube. Las funciones GPU (detector / nube de
+# puntos) NO van aquí: corren en el PC del usuario vía "LifeCity Local".
+#
+# Cómo usar:
+#   1) Sube este repo a GitHub (ya está).
+#   2) En https://dashboard.render.com  →  New  →  Blueprint  →  elige el repo.
+#   3) Render lee este archivo y crea el servicio "lifecity-api".
+#   4) En Environment agrega tus claves (NVIDIA_API_KEY, etc.).
+#   5) Copia la URL pública (https://lifecity-api.onrender.com) y, si es
+#      distinta, ponla en el visor:  ?api=<url>  o
+#      localStorage 'lifecity_cloud_api'.
+# ==========================================================================
+services:
+  - type: web
+    name: lifecity-api
+    runtime: python
+    plan: free
+    region: oregon
+    rootDir: ai
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      # CORS: dominios permitidos (coma-separados). '*' = cualquiera.
+      - key: LIFECITY_CORS
+        value: "https://app.lifecity.com.co,http://localhost:8123,http://localhost:8000"
+      # --- Secretos: pégalos en el panel de Render (sync:false = no en git) ---
+      - key: NVIDIA_API_KEY
+        sync: false
+      - key: NEMOTRON_MODEL
+        value: "nvidia/nemotron-3-ultra-550b-a55b"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false

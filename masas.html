@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <script src="auth.js"></script>
+<script src="lifecity-config.js"></script>
 <script src="learn.js"></script>
 <title>Cali · Estudio de Masas (Conceptual Massing)</title>
 <style>
@@ -695,7 +696,7 @@ window.addEventListener('keydown',(e)=>{ if(e.key==='Escape' && isEditMode()) se
 $('s-rh').addEventListener('input',(e)=>$('v-rh').textContent=(+e.target.value).toFixed(1));
 
 // ==================== IA DE MASAS (dataset + agente) ====================
-$('ai-endpoint').value = localStorage.getItem('cali_ai_endpoint') || 'http://localhost:8000/suggest';
+$('ai-endpoint').value = localStorage.getItem('cali_ai_endpoint') || (window.LC?LC.cloud('/suggest'):'http://localhost:8000/suggest');
 function currentExample(){
   return {
     input:{ predio:{ npn:lot&&lot.npn, direpred:lot&&lot.direpred, area:lotArea, icb, ica }, ring: lot&&lot.ring, levels:levels.map(l=>({name:l.name,elev:l.elev})) },

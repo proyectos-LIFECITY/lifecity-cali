@@ -5,6 +5,7 @@
 <script src="auth.js"></script>
 <script src="supabase-config.js"></script>
 <script src="platform.js"></script>
+<script src="lifecity-config.js"></script>
 <script src="osm-publish.js"></script>
 <title>Cali AEC Urban Viewer · Catastro IDESC</title>
 <style>
@@ -1472,7 +1473,7 @@ resize(); animate(0);
 
 // ===================== INIT =====================
 $('hud-center').textContent = `${state.centerLat.toFixed(5)}°, ${state.centerLon.toFixed(5)}°`;
-$('tg-endpoint').value = localStorage.getItem('cali_tg_endpoint') || 'http://localhost:8000/photos';
+$('tg-endpoint').value = localStorage.getItem('cali_tg_endpoint') || (window.LC ? LC.cloud('/photos') : 'http://localhost:8000/photos');
 if (window.LifeCityAuth) { $('user-chip').textContent = '◉ ' + window.LifeCityAuth.name(); $('btn-logout').onclick = () => window.LifeCityAuth.logout(); }
 // Plan / licenciador (free = todo lo actual; PRO = accesos adicionales)
 $('btn-plan').onclick = async () => {
@@ -1602,7 +1603,7 @@ async function askAI(){
     chatLog('Tienes <b>'+mine.length+'</b> propiedad(es) guardada(s): '+mine.slice(0,8).map(p=>p.name).join(', '),'ai');
     lastResults=mine.map(p=>({npn:p.npn,direpred:p.direpred||p.name,nom_barrio:p.nom_barrio,comuna:p.comuna,shape_area:p.area,centroid:{lat:p.lat,lon:p.lon},ring:p.ring})); lastLayer='mis_props'; chatActions(); return;
   }
-  const base=(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest').replace(/\/suggest.*/,'');
+  const base=(window.LC?LC.cloudApi:(localStorage.getItem('cali_ai_endpoint')||'http://localhost:8000/suggest').replace(/\/suggest.*/,''));
   chatLog('<span style="color:#8b97aa">consultando el catastro…</span>','ai');
   try{
     const body={pregunta:q}; if($('ai-chat-view').checked) body.bbox=viewBbox();
